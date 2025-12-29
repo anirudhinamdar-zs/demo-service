@@ -24,7 +24,7 @@ func (e *Employee) Create(ctx *gofr.Context, emp *employee.NewEmployee) (*employ
 	}
 
 	// Department must exist
-	if _, err := e.departmentStore.GetByCode(ctx, emp.Department); err != nil {
+	if _, err := e.departmentStore.GetByCode(ctx.Context, emp.Department); err != nil {
 		return nil, errors.New("department does not exist")
 	}
 
@@ -37,7 +37,7 @@ func (e *Employee) Create(ctx *gofr.Context, emp *employee.NewEmployee) (*employ
 		return nil, errors.New("email already exists")
 	}
 
-	return e.store.Create(ctx, emp)
+	return e.store.Create(ctx.Context, emp)
 }
 
 func (e *Employee) Get(ctx *gofr.Context, filter employee.Filter) ([]*employee.Employee, error) {
@@ -48,11 +48,11 @@ func (e *Employee) Get(ctx *gofr.Context, filter employee.Filter) ([]*employee.E
 		}
 	}
 
-	return e.store.Get(ctx, filter)
+	return e.store.Get(ctx.Context, filter)
 }
 
 func (e *Employee) GetById(ctx *gofr.Context, employeeId int) (*employee.Employee, error) {
-	return e.store.GetById(ctx, employeeId)
+	return e.store.GetById(ctx.Context, employeeId)
 }
 
 func (e *Employee) Update(ctx *gofr.Context, id int, emp *employee.NewEmployee) (*employee.Employee, error) {
@@ -61,12 +61,12 @@ func (e *Employee) Update(ctx *gofr.Context, id int, emp *employee.NewEmployee) 
 	}
 
 	// Target department must exist
-	if _, err := e.departmentStore.GetByCode(ctx, emp.Department); err != nil {
+	if _, err := e.departmentStore.GetByCode(ctx.Context, emp.Department); err != nil {
 		return nil, errors.New("department does not exist")
 	}
 
 	// Email uniqueness except self
-	exists, err := e.store.ExistsByEmail(ctx, emp.Email, &id)
+	exists, err := e.store.ExistsByEmail(ctx.Context, emp.Email, &id)
 	if err != nil {
 		return nil, err
 	}
@@ -74,9 +74,9 @@ func (e *Employee) Update(ctx *gofr.Context, id int, emp *employee.NewEmployee) 
 		return nil, errors.New("email already exists")
 	}
 
-	return e.store.Update(ctx, id, emp)
+	return e.store.Update(ctx.Context, id, emp)
 }
 
 func (e *Employee) Delete(ctx *gofr.Context, employeeId int) (string, error) {
-	return e.store.Delete(ctx, employeeId)
+	return e.store.Delete(ctx.Context, employeeId)
 }

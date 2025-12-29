@@ -1,11 +1,11 @@
 package department
 
 import (
+	"context"
 	"database/sql"
-	"demo-service/models/department"
 	"errors"
 
-	"gofr.dev/pkg/gofr"
+	"demo-service/models/department"
 )
 
 type Department struct {
@@ -13,21 +13,18 @@ type Department struct {
 }
 
 func Init(db *sql.DB) *Department {
-	return &Department{
-		db: db,
-	}
+	return &Department{db: db}
 }
 
-func (d *Department) Create(ctx *gofr.Context, dep *department.Department) (*department.Department, error) {
-	query := `
-		INSERT INTO departments (code, name, floor, description)
-		VALUES (?, ?, ?, ?)
-	`
+const createQuery = `
+	INSERT INTO departments (code, name, floor, description)
+	VALUES (?, ?, ?, ?)
+`
 
-	// Code is same as name enum (Option A)
+func (d *Department) Create(ctx context.Context, dep *department.Department) (*department.Department, error) {
 	result, err := d.db.ExecContext(
 		ctx,
-		query,
+		createQuery,
 		dep.Code,
 		dep.Name,
 		dep.Floor,
@@ -42,15 +39,10 @@ func (d *Department) Create(ctx *gofr.Context, dep *department.Department) (*dep
 		return nil, sql.ErrNoRows
 	}
 
-	return &department.Department{
-		Code:        dep.Code,
-		Name:        dep.Name,
-		Floor:       dep.Floor,
-		Description: dep.Description,
-	}, nil
+	return dep, nil
 }
 
-func (d *Department) Get(ctx *gofr.Context) ([]*department.Department, error) {
+func (d *Department) Get(ctx context.Context) ([]*department.Department, error) {
 	query := `
 		SELECT code, name, floor, description
 		FROM departments
@@ -67,23 +59,26 @@ func (d *Department) Get(ctx *gofr.Context) ([]*department.Department, error) {
 	for rows.Next() {
 		var dep department.Department
 
-		err := rows.Scan(
+		if err := rows.Scan(
 			&dep.Code,
 			&dep.Name,
 			&dep.Floor,
 			&dep.Description,
-		)
-		if err != nil {
+		); err != nil {
 			return nil, err
 		}
 
 		departments = append(departments, &dep)
 	}
 
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return departments, nil
 }
 
-func (d *Department) GetByCode(ctx *gofr.Context, code string) (*department.Department, error) {
+func (d *Department) GetByCode(ctx context.Context, code string) (*department.Department, error) {
 	query := `
 		SELECT code, name, floor, description
 		FROM departments
@@ -106,17 +101,14 @@ func (d *Department) GetByCode(ctx *gofr.Context, code string) (*department.Depa
 }
 
 func (d *Department) Update(
-	ctx *gofr.Context,
+	ctx context.Context,
 	code string,
 	dep *department.NewDepartment,
 ) (*department.Department, error) {
 
 	query := `
 		UPDATE departments
-		SET
-			name = ?,
-			floor = ?,
-			description = ?
+		SET name = ?, floor = ?, description = ?
 		WHERE code = ?
 	`
 
@@ -133,11 +125,7 @@ func (d *Department) Update(
 	}
 
 	rows, err := result.RowsAffected()
-	if err != nil {
-		return nil, err
-	}
-
-	if rows == 0 {
+	if err != nil || rows == 0 {
 		return nil, sql.ErrNoRows
 	}
 
@@ -149,7 +137,7 @@ func (d *Department) Update(
 	}, nil
 }
 
-func (d *Department) Delete(ctx *gofr.Context, code string) (string, error) {
+func (d *Department) Delete(ctx context.Context, code string) (string, error) {
 	checkQuery := `
 		SELECT COUNT(1)
 		FROM employees
@@ -157,13 +145,12 @@ func (d *Department) Delete(ctx *gofr.Context, code string) (string, error) {
 	`
 
 	var count int
-	err := d.db.QueryRowContext(ctx, checkQuery, code).Scan(&count)
-	if err != nil {
+	if err := d.db.QueryRowContext(ctx, checkQuery, code).Scan(&count); err != nil {
 		return "", err
 	}
 
 	if count > 0 {
-		return "", errors.New("department has employees mapped and cannot be deleted")
+		return "", errors.New("department has employees mapped")
 	}
 
 	deleteQuery := `
@@ -177,11 +164,7 @@ func (d *Department) Delete(ctx *gofr.Context, code string) (string, error) {
 	}
 
 	rows, err := result.RowsAffected()
-	if err != nil {
-		return "", err
-	}
-
-	if rows == 0 {
+	if err != nil || rows == 0 {
 		return "", sql.ErrNoRows
 	}
 
@@ -189,7 +172,7 @@ func (d *Department) Delete(ctx *gofr.Context, code string) (string, error) {
 }
 
 func (d *Department) ExistsByName(
-	ctx *gofr.Context,
+	ctx context.Context,
 	name string,
 	excludeCode *string,
 ) (bool, error) {
@@ -203,8 +186,7 @@ func (d *Department) ExistsByName(
 	}
 
 	var count int
-	err := d.db.QueryRowContext(ctx, query, args...).Scan(&count)
-	if err != nil {
+	if err := d.db.QueryRowContext(ctx, query, args...).Scan(&count); err != nil {
 		return false, err
 	}
 

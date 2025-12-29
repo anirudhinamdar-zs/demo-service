@@ -1,11 +1,10 @@
 package employee
 
 import (
+	"context"
 	"demo-service/models/employee"
 
 	"database/sql"
-
-	"gofr.dev/pkg/gofr"
 )
 
 type Employee struct {
@@ -18,7 +17,7 @@ func Init(db *sql.DB) *Employee {
 	}
 }
 
-func (e *Employee) Create(ctx *gofr.Context, emp *employee.NewEmployee) (*employee.Employee, error) {
+func (e *Employee) Create(ctx context.Context, emp *employee.NewEmployee) (*employee.Employee, error) {
 	query := `
 		INSERT INTO employees
 			(name, email, phone_number, dob, major, city, department)
@@ -59,7 +58,7 @@ func (e *Employee) Create(ctx *gofr.Context, emp *employee.NewEmployee) (*employ
 }
 
 func (e *Employee) Get(
-	ctx *gofr.Context,
+	ctx context.Context,
 	filter employee.Filter,
 ) ([]*employee.Employee, error) {
 
@@ -122,7 +121,7 @@ func (e *Employee) Get(
 	return employees, nil
 }
 
-func (e *Employee) GetById(ctx *gofr.Context, employeeId int) (*employee.Employee, error) {
+func (e *Employee) GetById(ctx context.Context, employeeId int) (*employee.Employee, error) {
 	query := `
 		SELECT id, name, email, phone_number, dob, major, city, department
 		FROM employees
@@ -148,7 +147,7 @@ func (e *Employee) GetById(ctx *gofr.Context, employeeId int) (*employee.Employe
 	return &emp, nil
 }
 
-func (e *Employee) Update(ctx *gofr.Context, employeeId int, emp *employee.NewEmployee) (*employee.Employee, error) {
+func (e *Employee) Update(ctx context.Context, employeeId int, emp *employee.NewEmployee) (*employee.Employee, error) {
 
 	query := `
 		UPDATE employees
@@ -200,7 +199,7 @@ func (e *Employee) Update(ctx *gofr.Context, employeeId int, emp *employee.NewEm
 	}, nil
 }
 
-func (e *Employee) Delete(ctx *gofr.Context, employeeId int) (string, error) {
+func (e *Employee) Delete(ctx context.Context, employeeId int) (string, error) {
 	query := `DELETE FROM employees WHERE id = ?`
 
 	result, err := e.db.ExecContext(ctx, query, employeeId)
@@ -221,7 +220,7 @@ func (e *Employee) Delete(ctx *gofr.Context, employeeId int) (string, error) {
 }
 
 func (e *Employee) ExistsByEmail(
-	ctx *gofr.Context,
+	ctx context.Context,
 	email string,
 	excludeID *int,
 ) (bool, error) {
@@ -244,7 +243,7 @@ func (e *Employee) ExistsByEmail(
 }
 
 func (e *Employee) CountByDepartment(
-	ctx *gofr.Context,
+	ctx context.Context,
 	deptCode string,
 ) (int, error) {
 
