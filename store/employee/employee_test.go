@@ -8,25 +8,36 @@ import (
 	"testing"
 	"time"
 
+	"developer.zopsmart.com/go/gofr/pkg/datastore"
+	"developer.zopsmart.com/go/gofr/pkg/gofr"
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCreate(t *testing.T) {
+func Initialize(t *testing.T) (*gomock.Controller, *gofr.Context, sqlmock.Sqlmock, error) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	ctx := context.Background()
-	db, mock, _ := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	store := Init(db)
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
 
-	query := `
-		INSERT INTO employees
-			(name, email, phone_number, dob, major, city, department)
-		VALUES
-			(?, ?, ?, ?, ?, ?, ?)
-	`
+	ctx := gofr.NewContext(nil, nil, &gofr.Gofr{DataStore: datastore.DataStore{ORM: db}})
+	ctx.Context = context.Background()
+
+	return ctrl, ctx, mock, err
+}
+func TestCreate(t *testing.T) {
+	_, ctx, mock, err := Initialize(t)
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	store := Init()
+
+	query := `INSERT INTO employees (name, email, phone_number, dob, major, city, department) VALUES (?, ?, ?, ?, ?, ?, ?)`
 
 	dob := time.Now().String()
 
@@ -93,9 +104,12 @@ func TestCreate(t *testing.T) {
 }
 
 func TestGet(t *testing.T) {
-	ctx := context.Background()
-	db, mock, _ := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	store := Init(db)
+	_, ctx, mock, err := Initialize(t)
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	store := Init()
 
 	baseQuery := `
 		SELECT
@@ -170,9 +184,12 @@ func TestGet(t *testing.T) {
 }
 
 func TestGetById(t *testing.T) {
-	ctx := context.Background()
-	db, mock, _ := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	store := Init(db)
+	_, ctx, mock, err := Initialize(t)
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	store := Init()
 
 	query := `
 		SELECT id, name, email, phone_number, dob, major, city, department
@@ -222,9 +239,12 @@ func TestGetById(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	ctx := context.Background()
-	db, mock, _ := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	store := Init(db)
+	_, ctx, mock, err := Initialize(t)
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	store := Init()
 
 	query := `
 		UPDATE employees
@@ -304,9 +324,12 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	ctx := context.Background()
-	db, mock, _ := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	store := Init(db)
+	_, ctx, mock, err := Initialize(t)
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	store := Init()
 
 	query := `DELETE FROM employees WHERE id = ?`
 
@@ -352,9 +375,12 @@ func TestDelete(t *testing.T) {
 }
 
 func TestExistsByEmail(t *testing.T) {
-	ctx := context.Background()
-	db, mock, _ := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	store := Init(db)
+	_, ctx, mock, err := Initialize(t)
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	store := Init()
 
 	tests := []struct {
 		desc      string
@@ -418,9 +444,12 @@ func TestExistsByEmail(t *testing.T) {
 }
 
 func TestCountByDepartment(t *testing.T) {
-	ctx := context.Background()
-	db, mock, _ := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	store := Init(db)
+	_, ctx, mock, err := Initialize(t)
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	store := Init()
 
 	query := `
 		SELECT COUNT(1)

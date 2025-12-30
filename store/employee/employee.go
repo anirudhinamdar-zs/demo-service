@@ -1,31 +1,25 @@
 package employee
 
 import (
-	"context"
 	"demo-service/models/employee"
+	"demo-service/store"
 
 	"database/sql"
+
+	"developer.zopsmart.com/go/gofr/pkg/gofr"
 )
 
 type Employee struct {
-	db *sql.DB
 }
 
-func Init(db *sql.DB) *Employee {
-	return &Employee{
-		db: db,
-	}
+func Init() store.Employee {
+	return &Employee{}
 }
 
-func (e *Employee) Create(ctx context.Context, emp *employee.NewEmployee) (*employee.Employee, error) {
-	query := `
-		INSERT INTO employees
-			(name, email, phone_number, dob, major, city, department)
-		VALUES
-			(?, ?, ?, ?, ?, ?, ?)
-	`
+func (e *Employee) Create(ctx *gofr.Context, emp *employee.NewEmployee) (*employee.Employee, error) {
+	query := `INSERT INTO employees (name, email, phone_number, dob, major, city, department) VALUES (?, ?, ?, ?, ?, ?, ?)`
 
-	result, err := e.db.ExecContext(
+	result, err := ctx.DB().ExecContext(
 		ctx,
 		query,
 		emp.Name,
@@ -58,7 +52,7 @@ func (e *Employee) Create(ctx context.Context, emp *employee.NewEmployee) (*empl
 }
 
 func (e *Employee) Get(
-	ctx context.Context,
+	ctx *gofr.Context,
 	filter employee.Filter,
 ) ([]*employee.Employee, error) {
 
@@ -86,7 +80,7 @@ func (e *Employee) Get(
 		args = append(args, *filter.Department)
 	}
 
-	rows, err := e.db.QueryContext(ctx, baseQuery, args...)
+	rows, err := ctx.DB().QueryContext(ctx, baseQuery, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +115,7 @@ func (e *Employee) Get(
 	return employees, nil
 }
 
-func (e *Employee) GetById(ctx context.Context, employeeId int) (*employee.Employee, error) {
+func (e *Employee) GetById(ctx *gofr.Context, employeeId int) (*employee.Employee, error) {
 	query := `
 		SELECT id, name, email, phone_number, dob, major, city, department
 		FROM employees
@@ -130,7 +124,7 @@ func (e *Employee) GetById(ctx context.Context, employeeId int) (*employee.Emplo
 
 	var emp employee.Employee
 
-	err := e.db.QueryRowContext(ctx, query, employeeId).Scan(
+	err := ctx.DB().QueryRowContext(ctx, query, employeeId).Scan(
 		&emp.ID,
 		&emp.Name,
 		&emp.Email,
@@ -147,7 +141,7 @@ func (e *Employee) GetById(ctx context.Context, employeeId int) (*employee.Emplo
 	return &emp, nil
 }
 
-func (e *Employee) Update(ctx context.Context, employeeId int, emp *employee.NewEmployee) (*employee.Employee, error) {
+func (e *Employee) Update(ctx *gofr.Context, employeeId int, emp *employee.NewEmployee) (*employee.Employee, error) {
 
 	query := `
 		UPDATE employees
@@ -162,7 +156,7 @@ func (e *Employee) Update(ctx context.Context, employeeId int, emp *employee.New
 		WHERE id = ?
 	`
 
-	result, err := e.db.ExecContext(
+	result, err := ctx.DB().ExecContext(
 		ctx,
 		query,
 		emp.Name,
@@ -199,10 +193,10 @@ func (e *Employee) Update(ctx context.Context, employeeId int, emp *employee.New
 	}, nil
 }
 
-func (e *Employee) Delete(ctx context.Context, employeeId int) (string, error) {
+func (e *Employee) Delete(ctx *gofr.Context, employeeId int) (string, error) {
 	query := `DELETE FROM employees WHERE id = ?`
 
-	result, err := e.db.ExecContext(ctx, query, employeeId)
+	result, err := ctx.DB().ExecContext(ctx, query, employeeId)
 	if err != nil {
 		return "", err
 	}
@@ -220,7 +214,7 @@ func (e *Employee) Delete(ctx context.Context, employeeId int) (string, error) {
 }
 
 func (e *Employee) ExistsByEmail(
-	ctx context.Context,
+	ctx *gofr.Context,
 	email string,
 	excludeID *int,
 ) (bool, error) {
@@ -234,7 +228,7 @@ func (e *Employee) ExistsByEmail(
 	}
 
 	var count int
-	err := e.db.QueryRowContext(ctx, query, args...).Scan(&count)
+	err := ctx.DB().QueryRowContext(ctx, query, args...).Scan(&count)
 	if err != nil {
 		return false, err
 	}
@@ -243,7 +237,7 @@ func (e *Employee) ExistsByEmail(
 }
 
 func (e *Employee) CountByDepartment(
-	ctx context.Context,
+	ctx *gofr.Context,
 	deptCode string,
 ) (int, error) {
 
@@ -254,7 +248,7 @@ func (e *Employee) CountByDepartment(
 	`
 
 	var count int
-	err := e.db.QueryRowContext(ctx, query, deptCode).Scan(&count)
+	err := ctx.DB().QueryRowContext(ctx, query, deptCode).Scan(&count)
 	if err != nil {
 		return 0, err
 	}

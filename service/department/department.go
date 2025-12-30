@@ -5,7 +5,7 @@ import (
 	"demo-service/store"
 	"errors"
 
-	"gofr.dev/pkg/gofr"
+	"developer.zopsmart.com/go/gofr/pkg/gofr"
 )
 
 type Department struct {
@@ -31,15 +31,15 @@ func (d *Department) Create(ctx *gofr.Context, dep *department.Department) (*dep
 		return nil, errors.New("department already exists")
 	}
 
-	return d.store.Create(ctx.Context, dep)
+	return d.store.Create(ctx, dep)
 }
 
 func (d *Department) Get(ctx *gofr.Context) ([]*department.Department, error) {
-	return d.store.Get(ctx.Context)
+	return d.store.Get(ctx)
 }
 
 func (d *Department) GetByCode(ctx *gofr.Context, code string) (*department.Department, error) {
-	return d.store.GetByCode(ctx.Context, code)
+	return d.store.GetByCode(ctx, code)
 }
 
 func (d *Department) Update(
@@ -47,7 +47,7 @@ func (d *Department) Update(
 	code string,
 	dep *department.NewDepartment,
 ) (*department.Department, error) {
-	return d.store.Update(ctx.Context, code, dep)
+	return d.store.Update(ctx, code, dep)
 }
 
 func (d *Department) Delete(ctx *gofr.Context, code string) (string, error) {
@@ -59,5 +59,5 @@ func (d *Department) Delete(ctx *gofr.Context, code string) (string, error) {
 		return "", errors.New("department has employees mapped")
 	}
 
-	return d.store.Delete(ctx.Context, code)
+	return d.store.Delete(ctx, code)
 }

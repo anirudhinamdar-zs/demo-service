@@ -6,9 +6,9 @@ import (
 	"errors"
 	"testing"
 
+	"developer.zopsmart.com/go/gofr/pkg/gofr"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"gofr.dev/pkg/gofr"
 )
 
 func TestDepartmentService_Create(t *testing.T) {

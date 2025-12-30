@@ -1,6 +1,6 @@
 package handler
 
-import "gofr.dev/pkg/gofr"
+import "developer.zopsmart.com/go/gofr/pkg/gofr"
 
 type Employee interface {
 	Create(ctx *gofr.Context) (interface{}, error)

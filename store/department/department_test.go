@@ -9,15 +9,36 @@ import (
 
 	"demo-service/models/department"
 
+	"developer.zopsmart.com/go/gofr/pkg/datastore"
+	"developer.zopsmart.com/go/gofr/pkg/gofr"
+	"github.com/golang/mock/gomock"
+
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCreate(t *testing.T) {
-	ctx := context.Background()
-	db, mock, _ := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	store := Init(db)
+func Initialize(t *testing.T) (*gomock.Controller, *gofr.Context, sqlmock.Sqlmock, error) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	ctx := gofr.NewContext(nil, nil, &gofr.Gofr{DataStore: datastore.DataStore{ORM: db}})
+	ctx.Context = context.Background()
+
+	return ctrl, ctx, mock, err
+}
+
+func TestCreate(t *testing.T) {
+	_, ctx, mock, err := Initialize(t)
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	store := Init()
 	tests := []struct {
 		desc           string
 		input          *department.Department
@@ -48,6 +69,8 @@ func TestCreate(t *testing.T) {
 		},
 	}
 
+	createQuery := `INSERT INTO departments (code, name, floor, description) VALUES (?, ?, ?, ?)`
+
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			mock.ExpectExec(createQuery).
@@ -63,10 +86,12 @@ func TestCreate(t *testing.T) {
 }
 
 func TestGet(t *testing.T) {
-	ctx := context.Background()
+	_, ctx, mock, err := Initialize(t)
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
 
-	db, mock, _ := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	store := Init(db)
+	store := Init()
 
 	query := `
 		SELECT code, name, floor, description
@@ -143,9 +168,12 @@ func TestGet(t *testing.T) {
 }
 
 func TestGetByCode(t *testing.T) {
-	ctx := context.Background()
-	db, mock, _ := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	store := Init(db)
+	_, ctx, mock, err := Initialize(t)
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+
+	store := Init()
 
 	query := `
 		SELECT code, name, floor, description
@@ -190,10 +218,12 @@ func TestGetByCode(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	ctx := context.Background()
+	_, ctx, mock, err := Initialize(t)
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
 
-	db, mock, _ := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	store := Init(db)
+	store := Init()
 
 	query := `
 		UPDATE departments
@@ -252,10 +282,12 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	ctx := context.Background()
+	_, ctx, mock, err := Initialize(t)
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
 
-	db, mock, _ := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	store := Init(db)
+	store := Init()
 
 	checkQuery := `
 		SELECT COUNT(1)
@@ -351,10 +383,12 @@ func TestDelete(t *testing.T) {
 }
 
 func TestExistsByName(t *testing.T) {
-	ctx := context.Background()
+	_, ctx, mock, err := Initialize(t)
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
 
-	db, mock, _ := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	store := Init(db)
+	store := Init()
 
 	tests := []struct {
 		desc        string

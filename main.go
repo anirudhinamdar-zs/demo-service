@@ -1,8 +1,6 @@
 package main
 
 import (
-	"database/sql"
-
 	"demo-service/handler/department"
 	"demo-service/handler/employee"
 
@@ -13,10 +11,9 @@ import (
 	empStore "demo-service/store/employee"
 
 	"fmt"
-	"log"
 
+	"developer.zopsmart.com/go/gofr/pkg/gofr"
 	_ "github.com/go-sql-driver/mysql"
-	"gofr.dev/pkg/gofr"
 )
 
 func main() {
@@ -24,25 +21,8 @@ func main() {
 
 	app := gofr.New()
 
-	dsn := "root:password@tcp(localhost:3306)/demo-service?parseTime=true"
-	db, err := sql.Open("mysql", dsn)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if err := db.Ping(); err != nil {
-		log.Fatal(err)
-	}
-
-	//defer func(db *sql.DB) {
-	//	err := db.Close()
-	//	if err != nil {
-	//		log.Fatal(err)
-	//	}
-	//}(db)
-
-	employeeStore := empStore.Init(db)
-	departmentStore := depStore.Init(db)
+	employeeStore := empStore.Init()
+	departmentStore := depStore.Init()
 
 	employeeService := empService.New(employeeStore, departmentStore)
 	departmentService := depService.New(departmentStore, employeeStore)
@@ -56,12 +36,11 @@ func main() {
 	app.PUT("/employees/{id}", employeeHandler.Update)
 	app.DELETE("/employees/{id}", employeeHandler.Delete)
 
-	// ---- DEPARTMENT ROUTES ----
 	app.GET("/departments", departmentHandler.Get)
 	app.GET("/departments/{code}", departmentHandler.GetByCode)
 	app.POST("/departments", departmentHandler.Create)
 	app.PUT("/departments/{code}", departmentHandler.Update)
 	app.DELETE("/departments/{code}", departmentHandler.Delete)
 
-	app.Run()
+	app.Start()
 }

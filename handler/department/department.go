@@ -5,7 +5,7 @@ import (
 	"demo-service/models/department"
 	"demo-service/service"
 
-	"gofr.dev/pkg/gofr"
+	"developer.zopsmart.com/go/gofr/pkg/gofr"
 )
 
 type Handler struct {

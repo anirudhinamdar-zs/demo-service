@@ -4,7 +4,7 @@ import (
 	"demo-service/models/department"
 	"demo-service/models/employee"
 
-	"gofr.dev/pkg/gofr"
+	"developer.zopsmart.com/go/gofr/pkg/gofr"
 )
 
 type Employee interface {

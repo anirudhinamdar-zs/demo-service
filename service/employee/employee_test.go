@@ -8,9 +8,9 @@ import (
 	"demo-service/models/employee"
 	"demo-service/store"
 
+	"developer.zopsmart.com/go/gofr/pkg/gofr"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"gofr.dev/pkg/gofr"
 )
 
 func TestEmployeeService_Create(t *testing.T) {
@@ -40,7 +40,7 @@ func TestEmployeeService_Create(t *testing.T) {
 			},
 			setupMocks: func(emp *store.MockEmployee, dep *store.MockDepartment) {
 				dep.EXPECT().
-					GetByCode(ctx.Context, "IT").
+					GetByCode(gomock.Any(), "IT").
 					Return(nil, errors.New("not found"))
 			},
 			expectError: true,
@@ -53,7 +53,7 @@ func TestEmployeeService_Create(t *testing.T) {
 			},
 			setupMocks: func(emp *store.MockEmployee, dep *store.MockDepartment) {
 				dep.EXPECT().
-					GetByCode(ctx.Context, "IT").
+					GetByCode(gomock.Any(), "IT").
 					Return(&department.Department{}, nil)
 
 				emp.EXPECT().
@@ -70,7 +70,7 @@ func TestEmployeeService_Create(t *testing.T) {
 			},
 			setupMocks: func(emp *store.MockEmployee, dep *store.MockDepartment) {
 				dep.EXPECT().
-					GetByCode(ctx.Context, "IT").
+					GetByCode(gomock.Any(), "IT").
 					Return(&department.Department{}, nil)
 
 				emp.EXPECT().
@@ -78,7 +78,7 @@ func TestEmployeeService_Create(t *testing.T) {
 					Return(false, nil)
 
 				emp.EXPECT().
-					Create(ctx.Context, gomock.Any()).
+					Create(gomock.Any(), gomock.Any()).
 					Return(&employee.Employee{ID: 1}, nil)
 			},
 		},

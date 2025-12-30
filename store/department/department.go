@@ -1,28 +1,25 @@
 package department
 
 import (
-	"context"
 	"database/sql"
+	"demo-service/store"
 	"errors"
 
 	"demo-service/models/department"
+
+	"developer.zopsmart.com/go/gofr/pkg/gofr"
 )
 
 type Department struct {
-	db *sql.DB
 }
 
-func Init(db *sql.DB) *Department {
-	return &Department{db: db}
+func Init() store.Department {
+	return &Department{}
 }
 
-const createQuery = `
-	INSERT INTO departments (code, name, floor, description)
-	VALUES (?, ?, ?, ?)
-`
-
-func (d *Department) Create(ctx context.Context, dep *department.Department) (*department.Department, error) {
-	result, err := d.db.ExecContext(
+func (d *Department) Create(ctx *gofr.Context, dep *department.Department) (*department.Department, error) {
+	createQuery := `INSERT INTO departments (code, name, floor, description) VALUES (?, ?, ?, ?)`
+	result, err := ctx.DB().ExecContext(
 		ctx,
 		createQuery,
 		dep.Code,
@@ -42,13 +39,13 @@ func (d *Department) Create(ctx context.Context, dep *department.Department) (*d
 	return dep, nil
 }
 
-func (d *Department) Get(ctx context.Context) ([]*department.Department, error) {
+func (d *Department) Get(ctx *gofr.Context) ([]*department.Department, error) {
 	query := `
 		SELECT code, name, floor, description
 		FROM departments
 	`
 
-	rows, err := d.db.QueryContext(ctx, query)
+	rows, err := ctx.DB().QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +75,7 @@ func (d *Department) Get(ctx context.Context) ([]*department.Department, error) 
 	return departments, nil
 }
 
-func (d *Department) GetByCode(ctx context.Context, code string) (*department.Department, error) {
+func (d *Department) GetByCode(ctx *gofr.Context, code string) (*department.Department, error) {
 	query := `
 		SELECT code, name, floor, description
 		FROM departments
@@ -87,7 +84,7 @@ func (d *Department) GetByCode(ctx context.Context, code string) (*department.De
 
 	var dep department.Department
 
-	err := d.db.QueryRowContext(ctx, query, code).Scan(
+	err := ctx.DB().QueryRowContext(ctx, query, code).Scan(
 		&dep.Code,
 		&dep.Name,
 		&dep.Floor,
@@ -101,7 +98,7 @@ func (d *Department) GetByCode(ctx context.Context, code string) (*department.De
 }
 
 func (d *Department) Update(
-	ctx context.Context,
+	ctx *gofr.Context,
 	code string,
 	dep *department.NewDepartment,
 ) (*department.Department, error) {
@@ -112,7 +109,7 @@ func (d *Department) Update(
 		WHERE code = ?
 	`
 
-	result, err := d.db.ExecContext(
+	result, err := ctx.DB().ExecContext(
 		ctx,
 		query,
 		dep.Name,
@@ -137,7 +134,7 @@ func (d *Department) Update(
 	}, nil
 }
 
-func (d *Department) Delete(ctx context.Context, code string) (string, error) {
+func (d *Department) Delete(ctx *gofr.Context, code string) (string, error) {
 	checkQuery := `
 		SELECT COUNT(1)
 		FROM employees
@@ -145,7 +142,7 @@ func (d *Department) Delete(ctx context.Context, code string) (string, error) {
 	`
 
 	var count int
-	if err := d.db.QueryRowContext(ctx, checkQuery, code).Scan(&count); err != nil {
+	if err := ctx.DB().QueryRowContext(ctx, checkQuery, code).Scan(&count); err != nil {
 		return "", err
 	}
 
@@ -158,7 +155,7 @@ func (d *Department) Delete(ctx context.Context, code string) (string, error) {
 		WHERE code = ?
 	`
 
-	result, err := d.db.ExecContext(ctx, deleteQuery, code)
+	result, err := ctx.DB().ExecContext(ctx, deleteQuery, code)
 	if err != nil {
 		return "", err
 	}
@@ -172,7 +169,7 @@ func (d *Department) Delete(ctx context.Context, code string) (string, error) {
 }
 
 func (d *Department) ExistsByName(
-	ctx context.Context,
+	ctx *gofr.Context,
 	name string,
 	excludeCode *string,
 ) (bool, error) {
@@ -186,7 +183,7 @@ func (d *Department) ExistsByName(
 	}
 
 	var count int
-	if err := d.db.QueryRowContext(ctx, query, args...).Scan(&count); err != nil {
+	if err := ctx.DB().QueryRowContext(ctx, query, args...).Scan(&count); err != nil {
 		return false, err
 	}
 

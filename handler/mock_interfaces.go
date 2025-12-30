@@ -7,8 +7,8 @@ package handler
 import (
 	reflect "reflect"
 
+	gofr "developer.zopsmart.com/go/gofr/pkg/gofr"
 	gomock "github.com/golang/mock/gomock"
-	gofr "gofr.dev/pkg/gofr"
 )
 
 // MockEmployee is a mock of Employee interface.
