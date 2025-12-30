@@ -5,11 +5,11 @@
 package store
 
 import (
-	context "context"
 	department "demo-service/models/department"
 	employee "demo-service/models/employee"
 	reflect "reflect"
 
+	gofr "developer.zopsmart.com/go/gofr/pkg/gofr"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -37,7 +37,7 @@ func (m *MockEmployee) EXPECT() *MockEmployeeMockRecorder {
 }
 
 // CountByDepartment mocks base method.
-func (m *MockEmployee) CountByDepartment(ctx context.Context, deptCode string) (int, error) {
+func (m *MockEmployee) CountByDepartment(ctx *gofr.Context, deptCode string) (int, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CountByDepartment", ctx, deptCode)
 	ret0, _ := ret[0].(int)
@@ -52,7 +52,7 @@ func (mr *MockEmployeeMockRecorder) CountByDepartment(ctx, deptCode interface{})
 }
 
 // Create mocks base method.
-func (m *MockEmployee) Create(ctx context.Context, emp *employee.NewEmployee) (*employee.Employee, error) {
+func (m *MockEmployee) Create(ctx *gofr.Context, emp *employee.NewEmployee) (*employee.Employee, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", ctx, emp)
 	ret0, _ := ret[0].(*employee.Employee)
@@ -67,7 +67,7 @@ func (mr *MockEmployeeMockRecorder) Create(ctx, emp interface{}) *gomock.Call {
 }
 
 // Delete mocks base method.
-func (m *MockEmployee) Delete(ctx context.Context, id int) (string, error) {
+func (m *MockEmployee) Delete(ctx *gofr.Context, id int) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Delete", ctx, id)
 	ret0, _ := ret[0].(string)
@@ -82,7 +82,7 @@ func (mr *MockEmployeeMockRecorder) Delete(ctx, id interface{}) *gomock.Call {
 }
 
 // ExistsByEmail mocks base method.
-func (m *MockEmployee) ExistsByEmail(ctx context.Context, email string, excludeID *int) (bool, error) {
+func (m *MockEmployee) ExistsByEmail(ctx *gofr.Context, email string, excludeID *int) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ExistsByEmail", ctx, email, excludeID)
 	ret0, _ := ret[0].(bool)
@@ -97,7 +97,7 @@ func (mr *MockEmployeeMockRecorder) ExistsByEmail(ctx, email, excludeID interfac
 }
 
 // Get mocks base method.
-func (m *MockEmployee) Get(ctx context.Context, filter employee.Filter) ([]*employee.Employee, error) {
+func (m *MockEmployee) Get(ctx *gofr.Context, filter employee.Filter) ([]*employee.Employee, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", ctx, filter)
 	ret0, _ := ret[0].([]*employee.Employee)
@@ -112,7 +112,7 @@ func (mr *MockEmployeeMockRecorder) Get(ctx, filter interface{}) *gomock.Call {
 }
 
 // GetById mocks base method.
-func (m *MockEmployee) GetById(ctx context.Context, id int) (*employee.Employee, error) {
+func (m *MockEmployee) GetById(ctx *gofr.Context, id int) (*employee.Employee, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetById", ctx, id)
 	ret0, _ := ret[0].(*employee.Employee)
@@ -127,7 +127,7 @@ func (mr *MockEmployeeMockRecorder) GetById(ctx, id interface{}) *gomock.Call {
 }
 
 // Update mocks base method.
-func (m *MockEmployee) Update(ctx context.Context, id int, emp *employee.NewEmployee) (*employee.Employee, error) {
+func (m *MockEmployee) Update(ctx *gofr.Context, id int, emp *employee.NewEmployee) (*employee.Employee, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Update", ctx, id, emp)
 	ret0, _ := ret[0].(*employee.Employee)
@@ -165,7 +165,7 @@ func (m *MockDepartment) EXPECT() *MockDepartmentMockRecorder {
 }
 
 // Create mocks base method.
-func (m *MockDepartment) Create(ctx context.Context, dep *department.Department) (*department.Department, error) {
+func (m *MockDepartment) Create(ctx *gofr.Context, dep *department.Department) (*department.Department, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", ctx, dep)
 	ret0, _ := ret[0].(*department.Department)
@@ -180,7 +180,7 @@ func (mr *MockDepartmentMockRecorder) Create(ctx, dep interface{}) *gomock.Call 
 }
 
 // Delete mocks base method.
-func (m *MockDepartment) Delete(ctx context.Context, code string) (string, error) {
+func (m *MockDepartment) Delete(ctx *gofr.Context, code string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Delete", ctx, code)
 	ret0, _ := ret[0].(string)
@@ -195,7 +195,7 @@ func (mr *MockDepartmentMockRecorder) Delete(ctx, code interface{}) *gomock.Call
 }
 
 // ExistsByName mocks base method.
-func (m *MockDepartment) ExistsByName(ctx context.Context, name string, excludeCode *string) (bool, error) {
+func (m *MockDepartment) ExistsByName(ctx *gofr.Context, name string, excludeCode *string) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ExistsByName", ctx, name, excludeCode)
 	ret0, _ := ret[0].(bool)
@@ -210,7 +210,7 @@ func (mr *MockDepartmentMockRecorder) ExistsByName(ctx, name, excludeCode interf
 }
 
 // Get mocks base method.
-func (m *MockDepartment) Get(ctx context.Context) ([]*department.Department, error) {
+func (m *MockDepartment) Get(ctx *gofr.Context) ([]*department.Department, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", ctx)
 	ret0, _ := ret[0].([]*department.Department)
@@ -225,7 +225,7 @@ func (mr *MockDepartmentMockRecorder) Get(ctx interface{}) *gomock.Call {
 }
 
 // GetByCode mocks base method.
-func (m *MockDepartment) GetByCode(ctx context.Context, code string) (*department.Department, error) {
+func (m *MockDepartment) GetByCode(ctx *gofr.Context, code string) (*department.Department, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetByCode", ctx, code)
 	ret0, _ := ret[0].(*department.Department)
@@ -240,7 +240,7 @@ func (mr *MockDepartmentMockRecorder) GetByCode(ctx, code interface{}) *gomock.C
 }
 
 // Update mocks base method.
-func (m *MockDepartment) Update(ctx context.Context, code string, dep *department.NewDepartment) (*department.Department, error) {
+func (m *MockDepartment) Update(ctx *gofr.Context, code string, dep *department.NewDepartment) (*department.Department, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Update", ctx, code, dep)
 	ret0, _ := ret[0].(*department.Department)
