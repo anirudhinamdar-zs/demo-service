@@ -10,8 +10,6 @@ import (
 )
 
 type Handler struct {
-	// Inject service layer interface of employee if needed.
-	// Inject any other exportable interfaces.
 	service service.Employee
 }
 
@@ -59,8 +57,6 @@ func (h *Handler) Get(ctx *gofr.Context) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// return resp, nil
 
 	return map[string]interface{}{
 		"data": map[string]interface{}{

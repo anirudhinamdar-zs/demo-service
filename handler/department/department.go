@@ -9,8 +9,6 @@ import (
 )
 
 type Handler struct {
-	// Inject service layer interface of employee if needed.
-	// Inject any other exportable interfaces.
 	service service.Department
 }
 
