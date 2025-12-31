@@ -55,32 +55,24 @@ func (e *Employee) Get(
 	ctx *gofr.Context,
 	filter employee.Filter,
 ) ([]*employee.Employee, error) {
-
-	baseQuery := `
-		SELECT
-			id, name, email, phone_number, dob, major, city, department
-		FROM employees
-		WHERE 1 = 1
-	`
-
 	args := []interface{}{}
 
 	if filter.ID != nil {
-		baseQuery += ` AND id = ?`
+		baseGetEmployeesQuery += ` AND id = ?`
 		args = append(args, *filter.ID)
 	}
 
 	if filter.Name != nil {
-		baseQuery += ` AND name LIKE ?`
+		baseGetEmployeesQuery += ` AND name LIKE ?`
 		args = append(args, "%"+*filter.Name+"%")
 	}
 
 	if filter.Department != nil {
-		baseQuery += ` AND department = ?`
+		baseGetEmployeesQuery += ` AND department = ?`
 		args = append(args, *filter.Department)
 	}
 
-	rows, err := ctx.DB().QueryContext(ctx, baseQuery, args...)
+	rows, err := ctx.DB().QueryContext(ctx, baseGetEmployeesQuery, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -116,15 +108,9 @@ func (e *Employee) Get(
 }
 
 func (e *Employee) GetById(ctx *gofr.Context, employeeId int) (*employee.Employee, error) {
-	query := `
-		SELECT id, name, email, phone_number, dob, major, city, department
-		FROM employees
-		WHERE id = ?
-	`
-
 	var emp employee.Employee
 
-	err := ctx.DB().QueryRowContext(ctx, query, employeeId).Scan(
+	err := ctx.DB().QueryRowContext(ctx, queryByID, employeeId).Scan(
 		&emp.ID,
 		&emp.Name,
 		&emp.Email,
@@ -142,23 +128,9 @@ func (e *Employee) GetById(ctx *gofr.Context, employeeId int) (*employee.Employe
 }
 
 func (e *Employee) Update(ctx *gofr.Context, employeeId int, emp *employee.NewEmployee) (*employee.Employee, error) {
-
-	query := `
-		UPDATE employees
-		SET
-			name = ?,
-			email = ?,
-			phone_number = ?,
-			dob = ?,
-			major = ?,
-			city = ?,
-			department = ?
-		WHERE id = ?
-	`
-
 	result, err := ctx.DB().ExecContext(
 		ctx,
-		query,
+		updateQueryById,
 		emp.Name,
 		emp.Email,
 		emp.PhoneNumber,
@@ -194,9 +166,7 @@ func (e *Employee) Update(ctx *gofr.Context, employeeId int, emp *employee.NewEm
 }
 
 func (e *Employee) Delete(ctx *gofr.Context, employeeId int) (string, error) {
-	query := `DELETE FROM employees WHERE id = ?`
-
-	result, err := ctx.DB().ExecContext(ctx, query, employeeId)
+	result, err := ctx.DB().ExecContext(ctx, deleteQueryById, employeeId)
 	if err != nil {
 		return "", err
 	}
@@ -218,17 +188,15 @@ func (e *Employee) ExistsByEmail(
 	email string,
 	excludeID *int,
 ) (bool, error) {
-
-	query := `SELECT COUNT(1) FROM employees WHERE email = ?`
 	args := []interface{}{email}
 
 	if excludeID != nil {
-		query += ` AND id != ?`
+		selectQueryForEmail += ` AND id != ?`
 		args = append(args, *excludeID)
 	}
 
 	var count int
-	err := ctx.DB().QueryRowContext(ctx, query, args...).Scan(&count)
+	err := ctx.DB().QueryRowContext(ctx, selectQueryForEmail, args...).Scan(&count)
 	if err != nil {
 		return false, err
 	}
@@ -240,15 +208,8 @@ func (e *Employee) CountByDepartment(
 	ctx *gofr.Context,
 	deptCode string,
 ) (int, error) {
-
-	query := `
-		SELECT COUNT(1)
-		FROM employees
-		WHERE department = ?
-	`
-
 	var count int
-	err := ctx.DB().QueryRowContext(ctx, query, deptCode).Scan(&count)
+	err := ctx.DB().QueryRowContext(ctx, selectQueryCountByDepartment, deptCode).Scan(&count)
 	if err != nil {
 		return 0, err
 	}

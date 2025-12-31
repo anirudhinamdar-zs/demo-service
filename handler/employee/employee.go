@@ -5,7 +5,6 @@ import (
 
 	"developer.zopsmart.com/go/gofr/pkg/gofr"
 
-	"demo-service/handler"
 	"demo-service/models/employee"
 	"demo-service/service"
 )
@@ -14,7 +13,7 @@ type Handler struct {
 	service service.Employee
 }
 
-func New(service service.Employee) handler.Employee {
+func New(service service.Employee) *Handler {
 	return &Handler{service: service}
 }
 

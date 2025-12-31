@@ -38,13 +38,26 @@ func TestCreate(t *testing.T) {
 	}{
 		{
 			desc: "success",
+			body: []byte(`{"code":"IT","name":"Information Technology","floor":1,"description":"New IT Department"}`),
+			mock: func() {
+				mockService.EXPECT().
+					Create(gomock.Any(), gomock.Any()).
+					Return(&department.Department{
+						Code: "IT", Name: "Information Technology", Floor: 1, Description: "New IT Department",
+					}, nil)
+			},
+			expectedRes: &department.Department{Code: "IT", Name: "Information Technology", Floor: 1, Description: "New IT Department"},
+		},
+		{
+			desc: "incomplete body",
 			body: []byte(`{"code":"IT","name":"Information Technology"}`),
 			mock: func() {
 				mockService.EXPECT().
 					Create(gomock.Any(), gomock.Any()).
 					Return(&department.Department{Code: "IT"}, nil)
 			},
-			expectedRes: &department.Department{Code: "IT"},
+			expectErr:   errors.MissingParam{},
+			expectedRes: nil,
 		},
 		{
 			desc:      "bind error",

@@ -1,9 +1,11 @@
 package department
 
 import (
+	"strings"
+
+	"developer.zopsmart.com/go/gofr/pkg/errors"
 	"developer.zopsmart.com/go/gofr/pkg/gofr"
 
-	"demo-service/handler"
 	"demo-service/models/department"
 	"demo-service/service"
 )
@@ -12,14 +14,38 @@ type Handler struct {
 	service service.Department
 }
 
-func New(service service.Department) handler.Department {
+func New(service service.Department) *Handler {
 	return &Handler{service: service}
+}
+
+func validateDepartment(dep *department.Department) error {
+	if dep == nil {
+		return errors.MissingParam{}
+	}
+
+	if strings.TrimSpace(dep.Code) == "" {
+		return errors.MissingParam{}
+	}
+
+	if strings.TrimSpace(dep.Name) == "" {
+		return errors.MissingParam{}
+	}
+
+	if dep.Floor <= 0 {
+		return errors.InvalidParam{}
+	}
+
+	return nil
 }
 
 func (h *Handler) Create(ctx *gofr.Context) (interface{}, error) {
 	var dep *department.Department
 
 	if err := ctx.Bind(&dep); err != nil {
+		return nil, err
+	}
+
+	if err := validateDepartment(dep); err != nil {
 		return nil, err
 	}
 

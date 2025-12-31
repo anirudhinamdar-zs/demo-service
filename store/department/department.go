@@ -18,7 +18,6 @@ func Init() store.Department {
 }
 
 func (d *Department) Create(ctx *gofr.Context, dep *department.Department) (*department.Department, error) {
-	createQuery := `INSERT INTO departments (code, name, floor, description) VALUES (?, ?, ?, ?)`
 	result, err := ctx.DB().ExecContext(
 		ctx,
 		createQuery,
@@ -40,12 +39,7 @@ func (d *Department) Create(ctx *gofr.Context, dep *department.Department) (*dep
 }
 
 func (d *Department) Get(ctx *gofr.Context) ([]*department.Department, error) {
-	query := `
-		SELECT code, name, floor, description
-		FROM departments
-	`
-
-	rows, err := ctx.DB().QueryContext(ctx, query)
+	rows, err := ctx.DB().QueryContext(ctx, selectQuery)
 	if err != nil {
 		return nil, err
 	}
@@ -76,15 +70,10 @@ func (d *Department) Get(ctx *gofr.Context) ([]*department.Department, error) {
 }
 
 func (d *Department) GetByCode(ctx *gofr.Context, code string) (*department.Department, error) {
-	query := `
-		SELECT code, name, floor, description
-		FROM departments
-		WHERE code = ?
-	`
 
 	var dep department.Department
 
-	err := ctx.DB().QueryRowContext(ctx, query, code).Scan(
+	err := ctx.DB().QueryRowContext(ctx, selectQueryByCode, code).Scan(
 		&dep.Code,
 		&dep.Name,
 		&dep.Floor,
@@ -102,16 +91,9 @@ func (d *Department) Update(
 	code string,
 	dep *department.NewDepartment,
 ) (*department.Department, error) {
-
-	query := `
-		UPDATE departments
-		SET name = ?, floor = ?, description = ?
-		WHERE code = ?
-	`
-
 	result, err := ctx.DB().ExecContext(
 		ctx,
-		query,
+		updateQueryByCode,
 		dep.Name,
 		dep.Floor,
 		dep.Description,
@@ -135,25 +117,14 @@ func (d *Department) Update(
 }
 
 func (d *Department) Delete(ctx *gofr.Context, code string) (string, error) {
-	checkQuery := `
-		SELECT COUNT(1)
-		FROM employees
-		WHERE department = ?
-	`
-
 	var count int
-	if err := ctx.DB().QueryRowContext(ctx, checkQuery, code).Scan(&count); err != nil {
+	if err := ctx.DB().QueryRowContext(ctx, countQueryByCode, code).Scan(&count); err != nil {
 		return "", err
 	}
 
 	if count > 0 {
 		return "", errors.Error("department has employees mapped")
 	}
-
-	deleteQuery := `
-		DELETE FROM departments
-		WHERE code = ?
-	`
 
 	result, err := ctx.DB().ExecContext(ctx, deleteQuery, code)
 	if err != nil {
@@ -173,17 +144,15 @@ func (d *Department) ExistsByName(
 	name string,
 	excludeCode *string,
 ) (bool, error) {
-
-	query := `SELECT COUNT(1) FROM departments WHERE name = ?`
 	args := []interface{}{name}
 
 	if excludeCode != nil {
-		query += ` AND code != ?`
+		countByDepartmentQuery += ` AND code != ?`
 		args = append(args, *excludeCode)
 	}
 
 	var count int
-	if err := ctx.DB().QueryRowContext(ctx, query, args...).Scan(&count); err != nil {
+	if err := ctx.DB().QueryRowContext(ctx, countByDepartmentQuery, args...).Scan(&count); err != nil {
 		return false, err
 	}
 
