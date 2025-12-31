@@ -1,6 +1,10 @@
 package main
 
 import (
+	"demo-service/migrations"
+
+	"developer.zopsmart.com/go/gofr/cmd/gofr/migration"
+	dbmigration "developer.zopsmart.com/go/gofr/cmd/gofr/migration/dbMigration"
 	"developer.zopsmart.com/go/gofr/pkg/gofr"
 
 	"demo-service/handler/department"
@@ -13,6 +17,15 @@ import (
 
 func main() {
 	app := gofr.New()
+
+	syncMigration(app)
+	db := dbmigration.NewGorm(app.GORM())
+
+	err := migration.Migrate("demo-service", db, migrations.All(), "UP", app.Logger)
+
+	if err != nil {
+		app.Logger.Errorf("Error from migration: %v", err)
+	}
 
 	employeeStore := empStore.Init()
 	departmentStore := depStore.Init()
@@ -36,4 +49,30 @@ func main() {
 	app.DELETE("/departments/{code}", departmentHandler.Delete)
 
 	app.Start()
+}
+
+func syncMigration(ctx *gofr.Gofr) {
+	query := "CREATE TABLE IF NOT EXISTS `gofr_migrations`(" +
+		"`app` varchar(191) NOT NULL," +
+		"`version` bigint(20) NOT NULL," +
+		"`start_time` datetime(3) DEFAULT NULL," +
+		"`end_time` datetime(3) DEFAULT NULL," +
+		"`method` varchar(191) NOT NULL," +
+		"PRIMARY KEY (`app`,`version`,`method`)" +
+		") ENGINE=InnoDB DEFAULT CHARSET=utf8;"
+
+	_, err := ctx.DB().Exec(query)
+	if err != nil {
+		ctx.Logger.Errorf("error while create gofr migration table in order service.[Error]%v", err)
+		return
+	}
+
+	query = "INSERT IGNORE INTO gofr_migrations(app,version,start_time,end_time,method) " +
+		"SELECT  app,version,start_time,end_time,'UP' as method FROM zs_migrations ;"
+
+	_, err = ctx.DB().Exec(query)
+	if err != nil {
+		ctx.Logger.Errorf("error while insert data in gofr migration table in order service.[Error]%v", err)
+		return
+	}
 }
