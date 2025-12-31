@@ -1,12 +1,12 @@
 package employee
 
 import (
-	"demo-service/models/employee"
-	"demo-service/store"
-
 	"database/sql"
 
 	"developer.zopsmart.com/go/gofr/pkg/gofr"
+
+	"demo-service/models/employee"
+	"demo-service/store"
 )
 
 type Employee struct {

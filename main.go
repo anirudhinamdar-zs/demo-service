@@ -1,24 +1,17 @@
 package main
 
 import (
+	"developer.zopsmart.com/go/gofr/pkg/gofr"
+
 	"demo-service/handler/department"
 	"demo-service/handler/employee"
-
 	depService "demo-service/service/department"
 	empService "demo-service/service/employee"
-
 	depStore "demo-service/store/department"
 	empStore "demo-service/store/employee"
-
-	"fmt"
-
-	"developer.zopsmart.com/go/gofr/pkg/gofr"
-	_ "github.com/go-sql-driver/mysql"
 )
 
 func main() {
-	fmt.Println("Hello World")
-
 	app := gofr.New()
 
 	employeeStore := empStore.Init()

@@ -4,15 +4,17 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"demo-service/models/employee"
 	"testing"
 	"time"
 
-	"developer.zopsmart.com/go/gofr/pkg/datastore"
-	"developer.zopsmart.com/go/gofr/pkg/gofr"
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+
+	"developer.zopsmart.com/go/gofr/pkg/datastore"
+	"developer.zopsmart.com/go/gofr/pkg/gofr"
+
+	"demo-service/models/employee"
 )
 
 func Initialize(t *testing.T) (*gomock.Controller, *gofr.Context, sqlmock.Sqlmock, error) {
@@ -21,7 +23,7 @@ func Initialize(t *testing.T) (*gomock.Controller, *gofr.Context, sqlmock.Sqlmoc
 
 	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+		t.Errorf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 
 	ctx := gofr.NewContext(nil, nil, &gofr.Gofr{DataStore: datastore.DataStore{ORM: db}})
@@ -32,7 +34,7 @@ func Initialize(t *testing.T) (*gomock.Controller, *gofr.Context, sqlmock.Sqlmoc
 func TestCreate(t *testing.T) {
 	_, ctx, mock, err := Initialize(t)
 	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+		t.Errorf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 
 	store := Init()
@@ -55,11 +57,13 @@ func TestCreate(t *testing.T) {
 		{
 			desc:      "last insert id error",
 			result:    sqlmock.NewErrorResult(sql.ErrConnDone),
+			mockErr:   sql.ErrConnDone,
 			expectErr: true,
 		},
 		{
-			desc:   "success",
-			result: sqlmock.NewResult(1, 1),
+			desc:    "success",
+			result:  sqlmock.NewResult(1, 1),
+			mockErr: nil,
 		},
 	}
 
@@ -75,7 +79,7 @@ func TestCreate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			exp := mock.ExpectExec(query).
+			mock.ExpectExec(query).
 				WithArgs(
 					input.Name,
 					input.Email,
@@ -84,13 +88,7 @@ func TestCreate(t *testing.T) {
 					input.Major,
 					input.City,
 					input.Department,
-				)
-
-			if tt.mockErr != nil {
-				exp.WillReturnError(tt.mockErr)
-			} else {
-				exp.WillReturnResult(tt.result)
-			}
+				).WillReturnResult(tt.result).WillReturnError(tt.mockErr)
 
 			_, err := store.Create(ctx, input)
 
@@ -106,7 +104,7 @@ func TestCreate(t *testing.T) {
 func TestGet(t *testing.T) {
 	_, ctx, mock, err := Initialize(t)
 	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+		t.Errorf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 
 	store := Init()
@@ -186,7 +184,7 @@ func TestGet(t *testing.T) {
 func TestGetById(t *testing.T) {
 	_, ctx, mock, err := Initialize(t)
 	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+		t.Errorf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 
 	store := Init()
@@ -241,7 +239,7 @@ func TestGetById(t *testing.T) {
 func TestUpdate(t *testing.T) {
 	_, ctx, mock, err := Initialize(t)
 	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+		t.Errorf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 
 	store := Init()
@@ -326,7 +324,7 @@ func TestUpdate(t *testing.T) {
 func TestDelete(t *testing.T) {
 	_, ctx, mock, err := Initialize(t)
 	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+		t.Errorf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 
 	store := Init()
@@ -377,7 +375,7 @@ func TestDelete(t *testing.T) {
 func TestExistsByEmail(t *testing.T) {
 	_, ctx, mock, err := Initialize(t)
 	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+		t.Errorf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 
 	store := Init()
@@ -446,7 +444,7 @@ func TestExistsByEmail(t *testing.T) {
 func TestCountByDepartment(t *testing.T) {
 	_, ctx, mock, err := Initialize(t)
 	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+		t.Errorf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 
 	store := Init()

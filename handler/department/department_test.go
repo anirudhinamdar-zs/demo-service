@@ -5,28 +5,35 @@ import (
 	"context"
 	"demo-service/models/department"
 	"demo-service/service"
-	"errors"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
-	"developer.zopsmart.com/go/gofr/pkg/gofr"
-	"developer.zopsmart.com/go/gofr/pkg/gofr/request"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+
+	"developer.zopsmart.com/go/gofr/pkg/errors"
+	"developer.zopsmart.com/go/gofr/pkg/gofr"
+	"developer.zopsmart.com/go/gofr/pkg/gofr/request"
 )
 
-func TestCreate(t *testing.T) {
+func Initialize(t *testing.T) (*service.MockDepartment, Handler) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	mockService := service.NewMockDepartment(ctrl)
 	handler := Handler{service: mockService}
+	return mockService, handler
+}
+
+func TestCreate(t *testing.T) {
+	mockService, handler := Initialize(t)
 
 	tests := []struct {
 		desc        string
 		body        []byte
 		mock        func()
-		expectErr   bool
+		expectErr   error
 		expectedRes interface{}
 	}{
 		{
@@ -42,7 +49,7 @@ func TestCreate(t *testing.T) {
 		{
 			desc:      "bind error",
 			body:      []byte(`invalid-json`),
-			expectErr: true,
+			expectErr: errors.Error("invalid character 'i' looking for beginning of value"),
 		},
 		{
 			desc: "service error",
@@ -50,9 +57,9 @@ func TestCreate(t *testing.T) {
 			mock: func() {
 				mockService.EXPECT().
 					Create(gomock.Any(), gomock.Any()).
-					Return(nil, errors.New("create failed"))
+					Return(nil, errors.Error("service error"))
 			},
-			expectErr: true,
+			expectErr: errors.Error("service error"),
 		},
 	}
 
@@ -62,34 +69,28 @@ func TestCreate(t *testing.T) {
 				tt.mock()
 			}
 
-			req, _ := http.NewRequest(http.MethodPost, "/department", bytes.NewReader(tt.body))
+			req := httptest.NewRequest(http.MethodPost, "/department", bytes.NewReader(tt.body))
 			ctx := gofr.NewContext(nil, request.NewHTTPRequest(req), nil)
 			ctx.Context = context.Background()
 
 			resp, err := handler.Create(ctx)
 
-			if tt.expectErr {
+			if tt.expectErr != nil {
 				assert.Error(t, err)
-				return
 			}
 
-			assert.NoError(t, err)
 			assert.Equal(t, tt.expectedRes, resp)
 		})
 	}
 }
 
 func TestGet(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockService := service.NewMockDepartment(ctrl)
-	handler := Handler{service: mockService}
+	mockService, handler := Initialize(t)
 
 	tests := []struct {
 		desc        string
 		mock        func()
-		expectErr   bool
+		expectErr   error
 		expectedRes interface{}
 	}{
 		{
@@ -101,6 +102,7 @@ func TestGet(t *testing.T) {
 						{Code: "IT"},
 					}, nil)
 			},
+			expectErr:   nil,
 			expectedRes: []*department.Department{{Code: "IT"}},
 		},
 		{
@@ -108,9 +110,9 @@ func TestGet(t *testing.T) {
 			mock: func() {
 				mockService.EXPECT().
 					Get(gomock.Any()).
-					Return(nil, errors.New("fetch failed"))
+					Return(nil, errors.Error("service error"))
 			},
-			expectErr: true,
+			expectErr: errors.Error("service error"),
 		},
 	}
 
@@ -120,35 +122,29 @@ func TestGet(t *testing.T) {
 				tt.mock()
 			}
 
-			req, _ := http.NewRequest(http.MethodGet, "/department", nil)
+			req := httptest.NewRequest(http.MethodGet, "/department", nil)
 			ctx := gofr.NewContext(nil, request.NewHTTPRequest(req), nil)
 			ctx.Context = context.Background()
 
 			resp, err := handler.Get(ctx)
 
-			if tt.expectErr {
+			if tt.expectErr != nil {
 				assert.Error(t, err)
-				return
 			}
 
-			assert.NoError(t, err)
 			assert.Equal(t, tt.expectedRes, resp)
 		})
 	}
 }
 
 func TestGetByCode(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockService := service.NewMockDepartment(ctrl)
-	handler := Handler{service: mockService}
+	mockService, handler := Initialize(t)
 
 	tests := []struct {
 		desc        string
 		code        string
 		mock        func()
-		expectErr   bool
+		expectErr   error
 		expectedRes interface{}
 	}{
 		{
@@ -159,6 +155,7 @@ func TestGetByCode(t *testing.T) {
 					GetByCode(gomock.Any(), "IT").
 					Return(&department.Department{Code: "IT"}, nil)
 			},
+			expectErr:   nil,
 			expectedRes: &department.Department{Code: "IT"},
 		},
 		{
@@ -167,9 +164,9 @@ func TestGetByCode(t *testing.T) {
 			mock: func() {
 				mockService.EXPECT().
 					GetByCode(gomock.Any(), "IT").
-					Return(nil, errors.New("not found"))
+					Return(nil, errors.Error("service error"))
 			},
-			expectErr: true,
+			expectErr: errors.Error("service error"),
 		},
 	}
 
@@ -179,37 +176,32 @@ func TestGetByCode(t *testing.T) {
 				tt.mock()
 			}
 
-			req, _ := http.NewRequest(http.MethodGet, "/department/IT", nil)
+			req := httptest.NewRequest(http.MethodGet, "/department/IT", nil)
 			ctx := gofr.NewContext(nil, request.NewHTTPRequest(req), nil)
 			ctx.Context = context.Background()
 			ctx.SetPathParams(map[string]string{"code": tt.code})
 
 			resp, err := handler.GetByCode(ctx)
 
-			if tt.expectErr {
+			if tt.expectErr != nil {
 				assert.Error(t, err)
 				return
 			}
 
-			assert.NoError(t, err)
 			assert.Equal(t, tt.expectedRes, resp)
 		})
 	}
 }
 
 func TestUpdate(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockService := service.NewMockDepartment(ctrl)
-	handler := Handler{service: mockService}
+	mockService, handler := Initialize(t)
 
 	tests := []struct {
 		desc        string
 		code        string
 		body        []byte
 		mock        func()
-		expectErr   bool
+		expectErr   error
 		expectedRes interface{}
 	}{
 		{
@@ -227,7 +219,7 @@ func TestUpdate(t *testing.T) {
 			desc:      "bind error",
 			code:      "IT",
 			body:      []byte(`invalid`),
-			expectErr: true,
+			expectErr: errors.Error("invalid character 'i' looking for beginning of value"),
 		},
 		{
 			desc: "service error",
@@ -236,9 +228,9 @@ func TestUpdate(t *testing.T) {
 			mock: func() {
 				mockService.EXPECT().
 					Update(gomock.Any(), "IT", gomock.Any()).
-					Return(nil, errors.New("update failed"))
+					Return(nil, errors.Error("service error"))
 			},
-			expectErr: true,
+			expectErr: errors.Error("service error"),
 		},
 	}
 
@@ -248,36 +240,31 @@ func TestUpdate(t *testing.T) {
 				tt.mock()
 			}
 
-			req, _ := http.NewRequest(http.MethodPut, "/department/IT", bytes.NewReader(tt.body))
+			req := httptest.NewRequest(http.MethodPut, "/department/IT", bytes.NewReader(tt.body))
 			ctx := gofr.NewContext(nil, request.NewHTTPRequest(req), nil)
 			ctx.Context = context.Background()
 			ctx.SetPathParams(map[string]string{"code": tt.code})
 
 			resp, err := handler.Update(ctx)
 
-			if tt.expectErr {
+			if tt.expectErr != nil {
 				assert.Error(t, err)
 				return
 			}
 
-			assert.NoError(t, err)
 			assert.Equal(t, tt.expectedRes, resp)
 		})
 	}
 }
 
 func TestDelete(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockService := service.NewMockDepartment(ctrl)
-	handler := Handler{service: mockService}
+	mockService, handler := Initialize(t)
 
 	tests := []struct {
 		desc        string
 		code        string
 		mock        func()
-		expectErr   bool
+		expectErr   error
 		expectedRes interface{}
 	}{
 		{
@@ -288,6 +275,7 @@ func TestDelete(t *testing.T) {
 					Delete(gomock.Any(), "IT").
 					Return("deleted", nil)
 			},
+			expectErr:   nil,
 			expectedRes: "deleted",
 		},
 		{
@@ -296,9 +284,9 @@ func TestDelete(t *testing.T) {
 			mock: func() {
 				mockService.EXPECT().
 					Delete(gomock.Any(), "IT").
-					Return("", errors.New("delete failed"))
+					Return("", errors.Error("service error"))
 			},
-			expectErr: true,
+			expectErr: errors.Error("service error"),
 		},
 	}
 
@@ -308,19 +296,18 @@ func TestDelete(t *testing.T) {
 				tt.mock()
 			}
 
-			req, _ := http.NewRequest(http.MethodDelete, "/department/IT", nil)
+			req := httptest.NewRequest(http.MethodDelete, "/department/IT", nil)
 			ctx := gofr.NewContext(nil, request.NewHTTPRequest(req), nil)
 			ctx.Context = context.Background()
 			ctx.SetPathParams(map[string]string{"code": tt.code})
 
 			resp, err := handler.Delete(ctx)
 
-			if tt.expectErr {
+			if tt.expectErr != nil {
 				assert.Error(t, err)
 				return
 			}
 
-			assert.NoError(t, err)
 			assert.Equal(t, tt.expectedRes, resp)
 		})
 	}

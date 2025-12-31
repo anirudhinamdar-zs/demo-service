@@ -1,12 +1,13 @@
 package employee
 
 import (
-	"demo-service/handler"
-	"demo-service/models/employee"
-	"demo-service/service"
 	"strconv"
 
 	"developer.zopsmart.com/go/gofr/pkg/gofr"
+
+	"demo-service/handler"
+	"demo-service/models/employee"
+	"demo-service/service"
 )
 
 type Handler struct {

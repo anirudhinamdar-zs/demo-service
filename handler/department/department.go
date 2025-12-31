@@ -1,11 +1,11 @@
 package department
 
 import (
+	"developer.zopsmart.com/go/gofr/pkg/gofr"
+
 	"demo-service/handler"
 	"demo-service/models/department"
 	"demo-service/service"
-
-	"developer.zopsmart.com/go/gofr/pkg/gofr"
 )
 
 type Handler struct {

@@ -1,16 +1,17 @@
 package employee
 
 import (
-	"errors"
 	"testing"
+
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+
+	"developer.zopsmart.com/go/gofr/pkg/errors"
+	"developer.zopsmart.com/go/gofr/pkg/gofr"
 
 	"demo-service/models/department"
 	"demo-service/models/employee"
 	"demo-service/store"
-
-	"developer.zopsmart.com/go/gofr/pkg/gofr"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestEmployeeService_Create(t *testing.T) {
@@ -41,7 +42,7 @@ func TestEmployeeService_Create(t *testing.T) {
 			setupMocks: func(emp *store.MockEmployee, dep *store.MockDepartment) {
 				dep.EXPECT().
 					GetByCode(gomock.Any(), "IT").
-					Return(nil, errors.New("not found"))
+					Return(nil, errors.EntityNotFound{Entity: "IT"})
 			},
 			expectError: true,
 		},
@@ -203,7 +204,7 @@ func TestEmployeeService_GetById(t *testing.T) {
 			setupMocks: func(emp *store.MockEmployee) {
 				emp.EXPECT().
 					GetById(gomock.Any(), 99).
-					Return(nil, errors.New("not found"))
+					Return(nil, errors.EntityNotFound{})
 			},
 			expectError: true,
 		},
@@ -263,7 +264,7 @@ func TestEmployeeService_Update(t *testing.T) {
 			setupMocks: func(emp *store.MockEmployee, dep *store.MockDepartment) {
 				dep.EXPECT().
 					GetByCode(gomock.Any(), validDept).
-					Return(nil, errors.New("not found"))
+					Return(nil, errors.EntityNotFound{})
 			},
 			expectError: true,
 		},
@@ -355,7 +356,7 @@ func TestEmployeeService_Delete(t *testing.T) {
 			setupMocks: func(emp *store.MockEmployee) {
 				emp.EXPECT().
 					Delete(gomock.Any(), 99).
-					Return("", errors.New("not found"))
+					Return("", errors.EntityNotFound{})
 			},
 			expectError: true,
 		},

@@ -1,14 +1,16 @@
 package department
 
 import (
-	"demo-service/models/department"
-	"demo-service/store"
-	"errors"
 	"testing"
 
-	"developer.zopsmart.com/go/gofr/pkg/gofr"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+
+	"developer.zopsmart.com/go/gofr/pkg/errors"
+	"developer.zopsmart.com/go/gofr/pkg/gofr"
+
+	"demo-service/models/department"
+	"demo-service/store"
 )
 
 func TestDepartmentService_Create(t *testing.T) {
@@ -53,7 +55,7 @@ func TestDepartmentService_Create(t *testing.T) {
 			setupMocks: func(dep *store.MockDepartment) {
 				dep.EXPECT().
 					ExistsByName(gomock.Any(), "Information Technology", nil).
-					Return(false, errors.New("db error"))
+					Return(false, errors.DB{Err: errors.DB{}})
 			},
 			expectError: true,
 		},
@@ -148,7 +150,7 @@ func TestDepartmentService_GetByCode(t *testing.T) {
 			setupMocks: func(dep *store.MockDepartment) {
 				dep.EXPECT().
 					GetByCode(gomock.Any(), "IT").
-					Return(nil, errors.New("not found"))
+					Return(nil, errors.EntityNotFound{Entity: "IT"})
 			},
 			expectError: true,
 		},
@@ -204,7 +206,7 @@ func TestDepartmentService_Update(t *testing.T) {
 			setupMocks: func(dep *store.MockDepartment) {
 				dep.EXPECT().
 					Update(gomock.Any(), "IT", gomock.Any()).
-					Return(nil, errors.New("db error"))
+					Return(nil, errors.DB{Err: errors.DB{}})
 			},
 			expectError: true,
 		},
@@ -258,7 +260,7 @@ func TestDepartmentService_Delete(t *testing.T) {
 			setupMocks: func(dep *store.MockDepartment, emp *store.MockEmployee) {
 				emp.EXPECT().
 					CountByDepartment(gomock.Any(), "IT").
-					Return(0, errors.New("db error"))
+					Return(0, errors.DB{Err: errors.DB{}})
 			},
 			expectError: true,
 		},

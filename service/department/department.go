@@ -1,11 +1,11 @@
 package department
 
 import (
+	"developer.zopsmart.com/go/gofr/pkg/errors"
+	"developer.zopsmart.com/go/gofr/pkg/gofr"
+
 	"demo-service/models/department"
 	"demo-service/store"
-	"errors"
-
-	"developer.zopsmart.com/go/gofr/pkg/gofr"
 )
 
 type Department struct {
@@ -19,7 +19,7 @@ func New(store store.Department, employeeStore store.Employee) *Department {
 
 func (d *Department) Create(ctx *gofr.Context, dep *department.Department) (*department.Department, error) {
 	if !department.IsValidCode(dep.Code) {
-		return nil, errors.New("invalid department code")
+		return nil, errors.InvalidParam{Param: []string{"code"}}
 	}
 
 	// Optional but correct: uniqueness check
@@ -28,7 +28,7 @@ func (d *Department) Create(ctx *gofr.Context, dep *department.Department) (*dep
 		return nil, err
 	}
 	if exists {
-		return nil, errors.New("department already exists")
+		return nil, errors.EntityAlreadyExists{}
 	}
 
 	return d.store.Create(ctx, dep)
@@ -56,7 +56,7 @@ func (d *Department) Delete(ctx *gofr.Context, code string) (string, error) {
 		return "", err
 	}
 	if count > 0 {
-		return "", errors.New("department has employees mapped")
+		return "", errors.Error("department has employees mapped")
 	}
 
 	return d.store.Delete(ctx, code)

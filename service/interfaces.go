@@ -1,10 +1,10 @@
 package service
 
 import (
+	"developer.zopsmart.com/go/gofr/pkg/gofr"
+
 	"demo-service/models/department"
 	"demo-service/models/employee"
-
-	"developer.zopsmart.com/go/gofr/pkg/gofr"
 )
 
 type Employee interface {

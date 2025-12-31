@@ -2,12 +2,12 @@ package department
 
 import (
 	"database/sql"
-	"demo-service/store"
-	"errors"
+
+	"developer.zopsmart.com/go/gofr/pkg/errors"
+	"developer.zopsmart.com/go/gofr/pkg/gofr"
 
 	"demo-service/models/department"
-
-	"developer.zopsmart.com/go/gofr/pkg/gofr"
+	"demo-service/store"
 )
 
 type Department struct {
@@ -147,7 +147,7 @@ func (d *Department) Delete(ctx *gofr.Context, code string) (string, error) {
 	}
 
 	if count > 0 {
-		return "", errors.New("department has employees mapped")
+		return "", errors.Error("department has employees mapped")
 	}
 
 	deleteQuery := `
