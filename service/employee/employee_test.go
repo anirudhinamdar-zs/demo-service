@@ -21,17 +21,22 @@ func TestEmployeeService_Create(t *testing.T) {
 	ctx := &gofr.Context{}
 
 	tests := []struct {
-		desc        string
-		input       *employee.NewEmployee
-		setupMocks  func(emp *store.MockEmployee, dep *store.MockDepartment)
-		expectError bool
+		desc    string
+		input   *employee.NewEmployee
+		mock    func(emp *store.MockEmployee, dep *store.MockDepartment)
+		result  *employee.Employee
+		mockErr error
 	}{
 		{
 			desc: "invalid department",
 			input: &employee.NewEmployee{
 				Department: "BIO",
 			},
-			expectError: true,
+			mock: func(emp *store.MockEmployee, dep *store.MockDepartment) {
+				// no calls expected
+			},
+			result:  nil,
+			mockErr: errors.InvalidParam{Param: []string{"department"}},
 		},
 		{
 			desc: "department does not exist",
@@ -39,12 +44,13 @@ func TestEmployeeService_Create(t *testing.T) {
 				Department: "IT",
 				Email:      "a@a.com",
 			},
-			setupMocks: func(emp *store.MockEmployee, dep *store.MockDepartment) {
+			mock: func(emp *store.MockEmployee, dep *store.MockDepartment) {
 				dep.EXPECT().
 					GetByCode(gomock.Any(), "IT").
 					Return(nil, errors.EntityNotFound{Entity: "IT"})
 			},
-			expectError: true,
+			result:  nil,
+			mockErr: errors.EntityNotFound{Entity: "IT"},
 		},
 		{
 			desc: "email already exists",
@@ -52,7 +58,7 @@ func TestEmployeeService_Create(t *testing.T) {
 				Department: "IT",
 				Email:      "a@a.com",
 			},
-			setupMocks: func(emp *store.MockEmployee, dep *store.MockDepartment) {
+			mock: func(emp *store.MockEmployee, dep *store.MockDepartment) {
 				dep.EXPECT().
 					GetByCode(gomock.Any(), "IT").
 					Return(&department.Department{}, nil)
@@ -61,7 +67,8 @@ func TestEmployeeService_Create(t *testing.T) {
 					ExistsByEmail(gomock.Any(), "a@a.com", nil).
 					Return(true, nil)
 			},
-			expectError: true,
+			result:  nil,
+			mockErr: errors.EntityAlreadyExists{},
 		},
 		{
 			desc: "success",
@@ -69,7 +76,7 @@ func TestEmployeeService_Create(t *testing.T) {
 				Department: "IT",
 				Email:      "a@a.com",
 			},
-			setupMocks: func(emp *store.MockEmployee, dep *store.MockDepartment) {
+			mock: func(emp *store.MockEmployee, dep *store.MockDepartment) {
 				dep.EXPECT().
 					GetByCode(gomock.Any(), "IT").
 					Return(&department.Department{}, nil)
@@ -82,27 +89,24 @@ func TestEmployeeService_Create(t *testing.T) {
 					Create(gomock.Any(), gomock.Any()).
 					Return(&employee.Employee{ID: 1}, nil)
 			},
+			result:  &employee.Employee{ID: 1},
+			mockErr: nil,
 		},
 	}
 
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			mockEmp := store.NewMockEmployee(ctrl)
 			mockDep := store.NewMockDepartment(ctrl)
 
-			if tt.setupMocks != nil {
-				tt.setupMocks(mockEmp, mockDep)
-			}
+			tt.mock(mockEmp, mockDep)
 
 			svc := New(mockEmp, mockDep)
 
-			_, err := svc.Create(ctx, tt.input)
+			resp, err := svc.Create(ctx, tt.input)
 
-			if tt.expectError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
+			assert.Equalf(t, tt.result, resp, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, tt.result, resp)
+			assert.Equalf(t, tt.mockErr, err, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, tt.mockErr, resp)
 		})
 	}
 }
@@ -117,62 +121,68 @@ func TestEmployeeService_Get(t *testing.T) {
 	invalidDept := "BIO"
 
 	tests := []struct {
-		desc        string
-		filter      employee.Filter
-		setupMocks  func(emp *store.MockEmployee)
-		expectError bool
+		desc    string
+		filter  employee.Filter
+		mock    func(emp *store.MockEmployee)
+		result  []*employee.Employee
+		mockErr error
 	}{
 		{
 			desc: "invalid department filter",
 			filter: employee.Filter{
 				Department: &invalidDept,
 			},
-			expectError: true,
+			mock: func(emp *store.MockEmployee) {
+				// no store call expected
+			},
+			result:  nil,
+			mockErr: errors.EntityNotFound{Entity: "BIO"},
 		},
 		{
 			desc:   "success without filters",
 			filter: employee.Filter{},
-			setupMocks: func(emp *store.MockEmployee) {
+			mock: func(emp *store.MockEmployee) {
 				emp.EXPECT().
 					Get(gomock.Any(), employee.Filter{}).
 					Return([]*employee.Employee{}, nil)
 			},
-			expectError: false,
+			result:  []*employee.Employee{},
+			mockErr: nil,
 		},
 		{
 			desc: "success with department filter",
 			filter: employee.Filter{
 				Department: &validDept,
 			},
-			setupMocks: func(emp *store.MockEmployee) {
+			mock: func(emp *store.MockEmployee) {
 				emp.EXPECT().
-					Get(gomock.Any(), gomock.Any()).
+					Get(gomock.Any(), employee.Filter{
+						Department: &validDept,
+					}).
 					Return([]*employee.Employee{
 						{ID: 1, Department: "IT"},
 					}, nil)
 			},
-			expectError: false,
+			result: []*employee.Employee{
+				{ID: 1, Department: "IT"},
+			},
+			mockErr: nil,
 		},
 	}
 
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			mockEmp := store.NewMockEmployee(ctrl)
 			mockDep := store.NewMockDepartment(ctrl)
 
-			if tt.setupMocks != nil {
-				tt.setupMocks(mockEmp)
-			}
+			tt.mock(mockEmp)
 
 			svc := New(mockEmp, mockDep)
 
-			_, err := svc.Get(ctx, tt.filter)
+			resp, err := svc.Get(ctx, tt.filter)
 
-			if tt.expectError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
+			assert.Equalf(t, tt.result, resp, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, tt.result, resp)
+			assert.Equalf(t, tt.mockErr, err, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, tt.mockErr, resp)
 		})
 	}
 }
@@ -184,50 +194,49 @@ func TestEmployeeService_GetById(t *testing.T) {
 	ctx := &gofr.Context{}
 
 	tests := []struct {
-		desc        string
-		id          int
-		setupMocks  func(emp *store.MockEmployee)
-		expectError bool
+		desc    string
+		id      int
+		mock    func(emp *store.MockEmployee)
+		result  *employee.Employee
+		mockErr error
 	}{
 		{
 			desc: "success",
 			id:   1,
-			setupMocks: func(emp *store.MockEmployee) {
+			mock: func(emp *store.MockEmployee) {
 				emp.EXPECT().
 					GetById(gomock.Any(), 1).
 					Return(&employee.Employee{ID: 1}, nil)
 			},
+			result:  &employee.Employee{ID: 1},
+			mockErr: nil,
 		},
 		{
 			desc: "not found",
 			id:   99,
-			setupMocks: func(emp *store.MockEmployee) {
+			mock: func(emp *store.MockEmployee) {
 				emp.EXPECT().
 					GetById(gomock.Any(), 99).
 					Return(nil, errors.EntityNotFound{})
 			},
-			expectError: true,
+			result:  nil,
+			mockErr: errors.EntityNotFound{},
 		},
 	}
 
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			mockEmp := store.NewMockEmployee(ctrl)
 			mockDep := store.NewMockDepartment(ctrl)
 
-			if tt.setupMocks != nil {
-				tt.setupMocks(mockEmp)
-			}
+			tt.mock(mockEmp)
 
 			svc := New(mockEmp, mockDep)
 
-			_, err := svc.GetById(ctx, tt.id)
+			resp, err := svc.GetById(ctx, tt.id)
 
-			if tt.expectError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
+			assert.Equalf(t, tt.result, resp, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, tt.result, resp)
+			assert.Equalf(t, tt.mockErr, err, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, tt.mockErr, resp)
 		})
 	}
 }
@@ -243,17 +252,22 @@ func TestEmployeeService_Update(t *testing.T) {
 	id := 1
 
 	tests := []struct {
-		desc        string
-		input       *employee.NewEmployee
-		setupMocks  func(emp *store.MockEmployee, dep *store.MockDepartment)
-		expectError bool
+		desc    string
+		input   *employee.NewEmployee
+		mock    func(emp *store.MockEmployee, dep *store.MockDepartment)
+		result  *employee.Employee
+		mockErr error
 	}{
 		{
 			desc: "invalid department",
 			input: &employee.NewEmployee{
 				Department: invalidDept,
 			},
-			expectError: true,
+			mock: func(emp *store.MockEmployee, dep *store.MockDepartment) {
+				// no store calls expected
+			},
+			result:  nil,
+			mockErr: errors.EntityNotFound{Entity: invalidDept},
 		},
 		{
 			desc: "department does not exist",
@@ -261,12 +275,13 @@ func TestEmployeeService_Update(t *testing.T) {
 				Department: validDept,
 				Email:      "a@a.com",
 			},
-			setupMocks: func(emp *store.MockEmployee, dep *store.MockDepartment) {
+			mock: func(emp *store.MockEmployee, dep *store.MockDepartment) {
 				dep.EXPECT().
 					GetByCode(gomock.Any(), validDept).
-					Return(nil, errors.EntityNotFound{})
+					Return(nil, errors.EntityNotFound{Entity: validDept})
 			},
-			expectError: true,
+			result:  nil,
+			mockErr: errors.EntityNotFound{Entity: validDept},
 		},
 		{
 			desc: "email already exists",
@@ -274,7 +289,7 @@ func TestEmployeeService_Update(t *testing.T) {
 				Department: validDept,
 				Email:      "a@a.com",
 			},
-			setupMocks: func(emp *store.MockEmployee, dep *store.MockDepartment) {
+			mock: func(emp *store.MockEmployee, dep *store.MockDepartment) {
 				dep.EXPECT().
 					GetByCode(gomock.Any(), validDept).
 					Return(&department.Department{}, nil)
@@ -283,7 +298,8 @@ func TestEmployeeService_Update(t *testing.T) {
 					ExistsByEmail(gomock.Any(), "a@a.com", &id).
 					Return(true, nil)
 			},
-			expectError: true,
+			result:  nil,
+			mockErr: errors.EntityAlreadyExists{},
 		},
 		{
 			desc: "success",
@@ -291,7 +307,7 @@ func TestEmployeeService_Update(t *testing.T) {
 				Department: validDept,
 				Email:      "a@a.com",
 			},
-			setupMocks: func(emp *store.MockEmployee, dep *store.MockDepartment) {
+			mock: func(emp *store.MockEmployee, dep *store.MockDepartment) {
 				dep.EXPECT().
 					GetByCode(gomock.Any(), validDept).
 					Return(&department.Department{}, nil)
@@ -304,27 +320,24 @@ func TestEmployeeService_Update(t *testing.T) {
 					Update(gomock.Any(), id, gomock.Any()).
 					Return(&employee.Employee{ID: id}, nil)
 			},
+			result:  &employee.Employee{ID: id},
+			mockErr: nil,
 		},
 	}
 
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			mockEmp := store.NewMockEmployee(ctrl)
 			mockDep := store.NewMockDepartment(ctrl)
 
-			if tt.setupMocks != nil {
-				tt.setupMocks(mockEmp, mockDep)
-			}
+			tt.mock(mockEmp, mockDep)
 
 			svc := New(mockEmp, mockDep)
 
-			_, err := svc.Update(ctx, id, tt.input)
+			resp, err := svc.Update(ctx, id, tt.input)
 
-			if tt.expectError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
+			assert.Equalf(t, tt.result, resp, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, tt.result, resp)
+			assert.Equalf(t, tt.mockErr, err, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, tt.mockErr, resp)
 		})
 	}
 }
@@ -336,50 +349,49 @@ func TestEmployeeService_Delete(t *testing.T) {
 	ctx := &gofr.Context{}
 
 	tests := []struct {
-		desc        string
-		id          int
-		setupMocks  func(emp *store.MockEmployee)
-		expectError bool
+		desc    string
+		id      int
+		mock    func(emp *store.MockEmployee)
+		result  string
+		mockErr error
 	}{
 		{
 			desc: "success",
 			id:   1,
-			setupMocks: func(emp *store.MockEmployee) {
+			mock: func(emp *store.MockEmployee) {
 				emp.EXPECT().
 					Delete(gomock.Any(), 1).
 					Return("Employee deleted successfully", nil)
 			},
+			result:  "Employee deleted successfully",
+			mockErr: nil,
 		},
 		{
 			desc: "not found",
 			id:   99,
-			setupMocks: func(emp *store.MockEmployee) {
+			mock: func(emp *store.MockEmployee) {
 				emp.EXPECT().
 					Delete(gomock.Any(), 99).
 					Return("", errors.EntityNotFound{})
 			},
-			expectError: true,
+			result:  "",
+			mockErr: errors.EntityNotFound{},
 		},
 	}
 
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			mockEmp := store.NewMockEmployee(ctrl)
 			mockDep := store.NewMockDepartment(ctrl)
 
-			if tt.setupMocks != nil {
-				tt.setupMocks(mockEmp)
-			}
+			tt.mock(mockEmp)
 
 			svc := New(mockEmp, mockDep)
 
-			_, err := svc.Delete(ctx, tt.id)
+			resp, err := svc.Delete(ctx, tt.id)
 
-			if tt.expectError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
+			assert.Equalf(t, tt.result, resp, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, tt.result, resp)
+			assert.Equalf(t, tt.mockErr, err, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, tt.mockErr, resp)
 		})
 	}
 }

@@ -20,10 +20,11 @@ func TestDepartmentService_Create(t *testing.T) {
 	ctx := &gofr.Context{}
 
 	tests := []struct {
-		desc        string
-		input       *department.Department
-		setupMocks  func(dep *store.MockDepartment)
-		expectError bool
+		desc    string
+		input   *department.Department
+		mock    func(dep *store.MockDepartment)
+		result  *department.Department
+		mockErr error
 	}{
 		{
 			desc: "invalid department code",
@@ -31,7 +32,9 @@ func TestDepartmentService_Create(t *testing.T) {
 				Code: "BIO",
 				Name: "Biology",
 			},
-			expectError: true,
+			mock:    func(dep *store.MockDepartment) {},
+			result:  nil,
+			mockErr: errors.InvalidParam{Param: []string{"code"}},
 		},
 		{
 			desc: "department already exists",
@@ -39,12 +42,13 @@ func TestDepartmentService_Create(t *testing.T) {
 				Code: "IT",
 				Name: "Information Technology",
 			},
-			setupMocks: func(dep *store.MockDepartment) {
+			mock: func(dep *store.MockDepartment) {
 				dep.EXPECT().
 					ExistsByName(gomock.Any(), "Information Technology", nil).
 					Return(true, nil)
 			},
-			expectError: true,
+			result:  nil,
+			mockErr: errors.EntityAlreadyExists{},
 		},
 		{
 			desc: "exists check error",
@@ -52,12 +56,13 @@ func TestDepartmentService_Create(t *testing.T) {
 				Code: "IT",
 				Name: "Information Technology",
 			},
-			setupMocks: func(dep *store.MockDepartment) {
+			mock: func(dep *store.MockDepartment) {
 				dep.EXPECT().
 					ExistsByName(gomock.Any(), "Information Technology", nil).
 					Return(false, errors.DB{Err: errors.DB{}})
 			},
-			expectError: true,
+			result:  nil,
+			mockErr: errors.DB{Err: errors.DB{}},
 		},
 		{
 			desc: "success",
@@ -65,7 +70,7 @@ func TestDepartmentService_Create(t *testing.T) {
 				Code: "IT",
 				Name: "Information Technology",
 			},
-			setupMocks: func(dep *store.MockDepartment) {
+			mock: func(dep *store.MockDepartment) {
 				dep.EXPECT().
 					ExistsByName(gomock.Any(), "Information Technology", nil).
 					Return(false, nil)
@@ -74,28 +79,24 @@ func TestDepartmentService_Create(t *testing.T) {
 					Create(gomock.Any(), gomock.Any()).
 					Return(&department.Department{Code: "IT"}, nil)
 			},
-			expectError: false,
+			result:  &department.Department{Code: "IT"},
+			mockErr: nil,
 		},
 	}
 
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			mockDep := store.NewMockDepartment(ctrl)
 			mockEmp := store.NewMockEmployee(ctrl)
 
-			if tt.setupMocks != nil {
-				tt.setupMocks(mockDep)
-			}
+			tt.mock(mockDep)
 
 			svc := New(mockDep, mockEmp)
 
-			_, err := svc.Create(ctx, tt.input)
+			resp, err := svc.Create(ctx, tt.input)
 
-			if tt.expectError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
+			assert.Equalf(t, tt.result, resp, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, tt.result, resp)
+			assert.Equalf(t, tt.mockErr, err, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, tt.mockErr, resp)
 		})
 	}
 }
@@ -106,21 +107,38 @@ func TestDepartmentService_Get(t *testing.T) {
 
 	ctx := &gofr.Context{}
 
-	mockDep := store.NewMockDepartment(ctrl)
-	mockEmp := store.NewMockEmployee(ctrl)
+	tests := []struct {
+		desc    string
+		result  []*department.Department
+		mockErr error
+		mock    func(dep *store.MockDepartment)
+	}{
+		{
+			desc:   "success",
+			result: []*department.Department{{Code: "IT"}},
+			mock: func(dep *store.MockDepartment) {
+				dep.EXPECT().
+					Get(gomock.Any()).
+					Return([]*department.Department{{Code: "IT"}}, nil)
+			},
+		},
+	}
 
-	mockDep.EXPECT().
-		Get(gomock.Any()).
-		Return([]*department.Department{
-			{Code: "IT"},
-		}, nil)
+	for i, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			mockDep := store.NewMockDepartment(ctrl)
+			mockEmp := store.NewMockEmployee(ctrl)
 
-	svc := New(mockDep, mockEmp)
+			tt.mock(mockDep)
 
-	res, err := svc.Get(ctx)
+			svc := New(mockDep, mockEmp)
 
-	assert.NoError(t, err)
-	assert.Len(t, res, 1)
+			resp, err := svc.Get(ctx)
+
+			assert.Equalf(t, tt.result, resp, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, resp, tt.result)
+			assert.Equalf(t, tt.mockErr, err, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, err, tt.mockErr)
+		})
+	}
 }
 
 func TestDepartmentService_GetByCode(t *testing.T) {
@@ -130,48 +148,48 @@ func TestDepartmentService_GetByCode(t *testing.T) {
 	ctx := &gofr.Context{}
 
 	tests := []struct {
-		desc        string
-		code        string
-		setupMocks  func(dep *store.MockDepartment)
-		expectError bool
+		desc    string
+		code    string
+		result  *department.Department
+		mockErr error
+		mock    func(dep *store.MockDepartment)
 	}{
 		{
-			desc: "success",
-			code: "IT",
-			setupMocks: func(dep *store.MockDepartment) {
+			desc:   "success",
+			code:   "IT",
+			result: &department.Department{Code: "IT"},
+			mock: func(dep *store.MockDepartment) {
 				dep.EXPECT().
 					GetByCode(gomock.Any(), "IT").
 					Return(&department.Department{Code: "IT"}, nil)
 			},
 		},
 		{
-			desc: "not found",
-			code: "IT",
-			setupMocks: func(dep *store.MockDepartment) {
+			desc:    "not found",
+			code:    "IT",
+			result:  nil,
+			mockErr: errors.EntityNotFound{Entity: "IT"},
+			mock: func(dep *store.MockDepartment) {
 				dep.EXPECT().
 					GetByCode(gomock.Any(), "IT").
 					Return(nil, errors.EntityNotFound{Entity: "IT"})
 			},
-			expectError: true,
 		},
 	}
 
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			mockDep := store.NewMockDepartment(ctrl)
 			mockEmp := store.NewMockEmployee(ctrl)
 
-			tt.setupMocks(mockDep)
+			tt.mock(mockDep)
 
 			svc := New(mockDep, mockEmp)
 
-			_, err := svc.GetByCode(ctx, tt.code)
+			resp, err := svc.GetByCode(ctx, tt.code)
 
-			if tt.expectError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
+			assert.Equalf(t, tt.result, resp, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, resp, tt.result)
+			assert.Equalf(t, tt.mockErr, err, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, err, tt.mockErr)
 		})
 	}
 }
@@ -183,51 +201,51 @@ func TestDepartmentService_Update(t *testing.T) {
 	ctx := &gofr.Context{}
 
 	tests := []struct {
-		desc        string
-		code        string
-		input       *department.NewDepartment
-		setupMocks  func(dep *store.MockDepartment)
-		expectError bool
+		desc    string
+		code    string
+		input   *department.NewDepartment
+		result  *department.Department
+		mockErr error
+		mock    func(dep *store.MockDepartment)
 	}{
 		{
-			desc:  "success",
-			code:  "IT",
-			input: &department.NewDepartment{Name: "Updated"},
-			setupMocks: func(dep *store.MockDepartment) {
+			desc:   "success",
+			code:   "IT",
+			input:  &department.NewDepartment{Name: "Updated"},
+			result: &department.Department{Code: "IT"},
+			mock: func(dep *store.MockDepartment) {
 				dep.EXPECT().
 					Update(gomock.Any(), "IT", gomock.Any()).
 					Return(&department.Department{Code: "IT"}, nil)
 			},
 		},
 		{
-			desc:  "update error",
-			code:  "IT",
-			input: &department.NewDepartment{Name: "Updated"},
-			setupMocks: func(dep *store.MockDepartment) {
+			desc:    "update error",
+			code:    "IT",
+			input:   &department.NewDepartment{Name: "Updated"},
+			result:  nil,
+			mockErr: errors.DB{Err: errors.DB{}},
+			mock: func(dep *store.MockDepartment) {
 				dep.EXPECT().
 					Update(gomock.Any(), "IT", gomock.Any()).
 					Return(nil, errors.DB{Err: errors.DB{}})
 			},
-			expectError: true,
 		},
 	}
 
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			mockDep := store.NewMockDepartment(ctrl)
 			mockEmp := store.NewMockEmployee(ctrl)
 
-			tt.setupMocks(mockDep)
+			tt.mock(mockDep)
 
 			svc := New(mockDep, mockEmp)
 
-			_, err := svc.Update(ctx, tt.code, tt.input)
+			resp, err := svc.Update(ctx, tt.code, tt.input)
 
-			if tt.expectError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
+			assert.Equalf(t, tt.result, resp, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, resp, tt.result)
+			assert.Equalf(t, tt.mockErr, err, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, err, tt.mockErr)
 		})
 	}
 }
@@ -239,35 +257,39 @@ func TestDepartmentService_Delete(t *testing.T) {
 	ctx := &gofr.Context{}
 
 	tests := []struct {
-		desc        string
-		code        string
-		setupMocks  func(dep *store.MockDepartment, emp *store.MockEmployee)
-		expectError bool
+		desc    string
+		code    string
+		result  string
+		mockErr error
+		mock    func(dep *store.MockDepartment, emp *store.MockEmployee)
 	}{
 		{
-			desc: "employees mapped",
-			code: "IT",
-			setupMocks: func(dep *store.MockDepartment, emp *store.MockEmployee) {
+			desc:    "employees mapped",
+			code:    "IT",
+			result:  "",
+			mockErr: errors.Error("department has employees mapped"),
+			mock: func(dep *store.MockDepartment, emp *store.MockEmployee) {
 				emp.EXPECT().
 					CountByDepartment(gomock.Any(), "IT").
 					Return(2, nil)
 			},
-			expectError: true,
 		},
 		{
-			desc: "count error",
-			code: "IT",
-			setupMocks: func(dep *store.MockDepartment, emp *store.MockEmployee) {
+			desc:    "count error",
+			code:    "IT",
+			result:  "",
+			mockErr: errors.DB{Err: errors.DB{}},
+			mock: func(dep *store.MockDepartment, emp *store.MockEmployee) {
 				emp.EXPECT().
 					CountByDepartment(gomock.Any(), "IT").
 					Return(0, errors.DB{Err: errors.DB{}})
 			},
-			expectError: true,
 		},
 		{
-			desc: "success",
-			code: "IT",
-			setupMocks: func(dep *store.MockDepartment, emp *store.MockEmployee) {
+			desc:   "success",
+			code:   "IT",
+			result: "Department deleted successfully",
+			mock: func(dep *store.MockDepartment, emp *store.MockEmployee) {
 				emp.EXPECT().
 					CountByDepartment(gomock.Any(), "IT").
 					Return(0, nil)
@@ -276,26 +298,22 @@ func TestDepartmentService_Delete(t *testing.T) {
 					Delete(gomock.Any(), "IT").
 					Return("Department deleted successfully", nil)
 			},
-			expectError: false,
 		},
 	}
 
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			mockDep := store.NewMockDepartment(ctrl)
 			mockEmp := store.NewMockEmployee(ctrl)
 
-			tt.setupMocks(mockDep, mockEmp)
+			tt.mock(mockDep, mockEmp)
 
 			svc := New(mockDep, mockEmp)
 
-			_, err := svc.Delete(ctx, tt.code)
+			resp, err := svc.Delete(ctx, tt.code)
 
-			if tt.expectError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
+			assert.Equalf(t, tt.result, resp, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, resp, tt.result)
+			assert.Equalf(t, tt.mockErr, err, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, err, tt.mockErr)
 		})
 	}
 }
