@@ -2,7 +2,10 @@ package employee
 
 import (
 	"database/sql"
+	"fmt"
+	"strings"
 
+	"developer.zopsmart.com/go/gofr/pkg/errors"
 	"developer.zopsmart.com/go/gofr/pkg/gofr"
 
 	"demo-service/models/employee"
@@ -127,19 +130,63 @@ func (e *Employee) GetById(ctx *gofr.Context, employeeId int) (*employee.Employe
 	return &emp, nil
 }
 
-func (e *Employee) Update(ctx *gofr.Context, employeeId int, emp *employee.NewEmployee) (*employee.Employee, error) {
-	result, err := ctx.DB().ExecContext(
-		ctx,
-		updateQueryById,
-		emp.Name,
-		emp.Email,
-		emp.PhoneNumber,
-		emp.DOB,
-		emp.Major,
-		emp.City,
-		emp.Department,
-		employeeId,
-	)
+func (e *Employee) Update(
+	ctx *gofr.Context,
+	employeeId int,
+	emp *employee.NewEmployee,
+) (*employee.Employee, error) {
+
+	setClauses := []string{}
+	args := []interface{}{}
+
+	if emp.Name != "" {
+		setClauses = append(setClauses, "name = ?")
+		args = append(args, emp.Name)
+	}
+
+	if emp.Email != "" {
+		setClauses = append(setClauses, "email = ?")
+		args = append(args, emp.Email)
+	}
+
+	if emp.PhoneNumber != "" {
+		setClauses = append(setClauses, "phone_number = ?")
+		args = append(args, emp.PhoneNumber)
+	}
+
+	if emp.DOB != "" {
+		setClauses = append(setClauses, "dob = ?")
+		args = append(args, emp.DOB)
+	}
+
+	if emp.Major != "" {
+		setClauses = append(setClauses, "major = ?")
+		args = append(args, emp.Major)
+	}
+
+	if emp.City != "" {
+		setClauses = append(setClauses, "city = ?")
+		args = append(args, emp.City)
+	}
+
+	if emp.Department != "" {
+		setClauses = append(setClauses, "department = ?")
+		args = append(args, emp.Department)
+	}
+
+	if len(setClauses) == 0 {
+		return nil, errors.InvalidParam{Param: []string{"update_fields"}}
+	}
+
+	query := fmt.Sprintf(`
+		UPDATE employees
+		SET %s
+		WHERE id = ?
+	`, strings.Join(setClauses, ", "))
+
+	args = append(args, employeeId)
+
+	result, err := ctx.DB().ExecContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -153,16 +200,7 @@ func (e *Employee) Update(ctx *gofr.Context, employeeId int, emp *employee.NewEm
 		return nil, sql.ErrNoRows
 	}
 
-	return &employee.Employee{
-		ID:          employeeId,
-		Name:        emp.Name,
-		Email:       emp.Email,
-		PhoneNumber: emp.PhoneNumber,
-		DOB:         emp.DOB,
-		Major:       emp.Major,
-		City:        emp.City,
-		Department:  emp.Department,
-	}, nil
+	return e.GetById(ctx, employeeId)
 }
 
 func (e *Employee) Delete(ctx *gofr.Context, employeeId int) (string, error) {

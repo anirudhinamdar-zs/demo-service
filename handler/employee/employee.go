@@ -92,13 +92,13 @@ func (h *Handler) Update(ctx *gofr.Context) (interface{}, error) {
 		return nil, err
 	}
 
-	var emp *employee.NewEmployee
+	var patch *employee.NewEmployee
 
-	if err := ctx.Bind(&emp); err != nil {
+	if err := ctx.Bind(&patch); err != nil {
 		return nil, err
 	}
 
-	resp, err := h.service.Update(ctx, empID, emp)
+	resp, err := h.service.Update(ctx, empID, patch)
 
 	if err != nil {
 		return nil, err

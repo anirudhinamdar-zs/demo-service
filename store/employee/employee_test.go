@@ -334,6 +334,12 @@ func TestUpdate(t *testing.T) {
 		WHERE id = ?
 	`
 
+	getByIDQuery := `
+		SELECT id, name, email, phone_number, dob, major, city, department
+		FROM employees
+		WHERE id = ?
+	`
+
 	dob := time.Now().String()
 
 	input := &employee.NewEmployee{
@@ -418,6 +424,23 @@ func TestUpdate(t *testing.T) {
 						1,
 					).
 					WillReturnResult(sqlmock.NewResult(1, 1))
+
+				rows := sqlmock.NewRows(
+					[]string{"id", "name", "email", "phone_number", "dob", "major", "city", "department"},
+				).AddRow(
+					1,
+					input.Name,
+					input.Email,
+					input.PhoneNumber,
+					input.DOB,
+					input.Major,
+					input.City,
+					input.Department,
+				)
+
+				mock.ExpectQuery(getByIDQuery).
+					WithArgs(1).
+					WillReturnRows(rows)
 			},
 		},
 	}

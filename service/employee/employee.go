@@ -56,22 +56,24 @@ func (e *Employee) GetById(ctx *gofr.Context, employeeId int) (*employee.Employe
 }
 
 func (e *Employee) Update(ctx *gofr.Context, id int, emp *employee.NewEmployee) (*employee.Employee, error) {
-	if !department.IsValidCode(emp.Department) {
-		return nil, errors.EntityNotFound{Entity: emp.Department}
+	if emp.Department != "" {
+		if !department.IsValidCode(emp.Department) {
+			return nil, errors.EntityNotFound{Entity: emp.Department}
+		}
+
+		if _, err := e.departmentStore.GetByCode(ctx, emp.Department); err != nil {
+			return nil, errors.EntityNotFound{Entity: emp.Department}
+		}
 	}
 
-	// Target department must exist
-	if _, err := e.departmentStore.GetByCode(ctx, emp.Department); err != nil {
-		return nil, errors.EntityNotFound{Entity: emp.Department}
-	}
-
-	// Email uniqueness except self
-	exists, err := e.store.ExistsByEmail(ctx, emp.Email, &id)
-	if err != nil {
-		return nil, err
-	}
-	if exists {
-		return nil, errors.EntityAlreadyExists{}
+	if emp.Email != "" {
+		exists, err := e.store.ExistsByEmail(ctx, emp.Email, &id)
+		if err != nil {
+			return nil, err
+		}
+		if exists {
+			return nil, errors.EntityAlreadyExists{}
+		}
 	}
 
 	return e.store.Update(ctx, id, emp)
