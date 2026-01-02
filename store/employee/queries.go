@@ -11,7 +11,6 @@ var baseGetEmployeesQuery = `
 		city,
 		department
 	FROM employees
-	WHERE 1 = 1
 `
 
 const queryByID = `

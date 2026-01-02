@@ -58,24 +58,31 @@ func (e *Employee) Get(
 	ctx *gofr.Context,
 	filter employee.Filter,
 ) ([]*employee.Employee, error) {
+	conditions := []string{}
 	args := []interface{}{}
 
 	if filter.ID != nil {
-		baseGetEmployeesQuery += ` AND id = ?`
+		conditions = append(conditions, "id = ?")
 		args = append(args, *filter.ID)
 	}
 
 	if filter.Name != nil {
-		baseGetEmployeesQuery += ` AND name LIKE ?`
+		conditions = append(conditions, "name LIKE ?")
 		args = append(args, "%"+*filter.Name+"%")
 	}
 
 	if filter.Department != nil {
-		baseGetEmployeesQuery += ` AND department = ?`
+		conditions = append(conditions, "department = ?")
 		args = append(args, *filter.Department)
 	}
 
-	rows, err := ctx.DB().QueryContext(ctx, baseGetEmployeesQuery, args...)
+	where := ""
+	if len(conditions) > 0 {
+		where = " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	query := baseGetEmployeesQuery + where
+	rows, err := ctx.DB().QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

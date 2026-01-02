@@ -39,7 +39,7 @@ func main() {
 	app.GET("/employees", employeeHandler.Get)
 	app.GET("/employees/{id}", employeeHandler.GetById)
 	app.POST("/employees", employeeHandler.Create)
-	app.PUT("/employees/{id}", employeeHandler.Update)
+	app.PATCH("/employees/{id}", employeeHandler.Update)
 	app.DELETE("/employees/{id}", employeeHandler.Delete)
 
 	app.GET("/departments", departmentHandler.Get)
