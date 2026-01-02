@@ -3,6 +3,7 @@ package employee
 import (
 	"strconv"
 
+	"developer.zopsmart.com/go/gofr/pkg/errors"
 	"developer.zopsmart.com/go/gofr/pkg/gofr"
 
 	"demo-service/models/employee"
@@ -21,7 +22,7 @@ func (h *Handler) Create(ctx *gofr.Context) (interface{}, error) {
 	var emp *employee.NewEmployee
 
 	if err := ctx.Bind(&emp); err != nil {
-		return nil, err
+		return nil, errors.Error("Binding failed")
 	}
 
 	resp, err := h.service.Create(ctx, emp)
@@ -95,7 +96,7 @@ func (h *Handler) Update(ctx *gofr.Context) (interface{}, error) {
 	var patch *employee.NewEmployee
 
 	if err := ctx.Bind(&patch); err != nil {
-		return nil, err
+		return nil, errors.Error("Binding failed")
 	}
 
 	resp, err := h.service.Update(ctx, empID, patch)

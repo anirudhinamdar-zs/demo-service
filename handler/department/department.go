@@ -42,7 +42,7 @@ func (h *Handler) Create(ctx *gofr.Context) (interface{}, error) {
 	var dep *department.Department
 
 	if err := ctx.Bind(&dep); err != nil {
-		return nil, err
+		return nil, errors.Error("Binding failed")
 	}
 
 	if err := validateDepartment(dep); err != nil {
@@ -86,7 +86,7 @@ func (h *Handler) Update(ctx *gofr.Context) (interface{}, error) {
 	var dep *department.NewDepartment
 
 	if err := ctx.Bind(&dep); err != nil {
-		return nil, err
+		return nil, errors.Error("Binding failed")
 	}
 
 	resp, err := h.service.Update(ctx, code, dep)

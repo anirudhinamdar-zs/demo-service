@@ -3,8 +3,6 @@ package department
 import (
 	"bytes"
 	"context"
-	"demo-service/models/department"
-	"demo-service/service"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -15,6 +13,9 @@ import (
 	"developer.zopsmart.com/go/gofr/pkg/errors"
 	"developer.zopsmart.com/go/gofr/pkg/gofr"
 	"developer.zopsmart.com/go/gofr/pkg/gofr/request"
+
+	"demo-service/models/department"
+	"demo-service/service"
 )
 
 func Initialize(t *testing.T) (*service.MockDepartment, Handler) {
@@ -30,15 +31,18 @@ func TestCreate(t *testing.T) {
 	mockService, handler := Initialize(t)
 
 	tests := []struct {
-		desc        string
-		body        []byte
-		mock        func()
-		expectErr   error
-		expectedRes interface{}
+		desc    string
+		body    []byte
+		result  interface{}
+		mockErr error
+		mock    func()
 	}{
 		{
 			desc: "success",
 			body: []byte(`{"code":"IT","name":"Information Technology","floor":1,"description":"New IT Department"}`),
+			result: &department.Department{
+				Code: "IT", Name: "Information Technology", Floor: 1, Description: "New IT Department",
+			},
 			mock: func() {
 				mockService.EXPECT().
 					Create(gomock.Any(), gomock.Any()).
@@ -46,37 +50,27 @@ func TestCreate(t *testing.T) {
 						Code: "IT", Name: "Information Technology", Floor: 1, Description: "New IT Department",
 					}, nil)
 			},
-			expectedRes: &department.Department{Code: "IT", Name: "Information Technology", Floor: 1, Description: "New IT Department"},
 		},
 		{
-			desc: "incomplete body",
-			body: []byte(`{"code":"IT","name":"Information Technology"}`),
-			mock: func() {
-				mockService.EXPECT().
-					Create(gomock.Any(), gomock.Any()).
-					Return(&department.Department{Code: "IT"}, nil)
-			},
-			expectErr:   errors.MissingParam{},
-			expectedRes: nil,
+			desc:    "bind error",
+			body:    []byte(`invalid-json`),
+			result:  nil,
+			mockErr: errors.Error("Binding failed"),
 		},
 		{
-			desc:      "bind error",
-			body:      []byte(`invalid-json`),
-			expectErr: errors.Error("invalid character 'i' looking for beginning of value"),
-		},
-		{
-			desc: "service error",
-			body: []byte(`{"code":"IT","name":"Information Technology"}`),
+			desc:    "Invalid param error",
+			body:    []byte(`{"code":"BIO","name":"Biology Department"}`),
+			result:  nil,
+			mockErr: errors.InvalidParam(errors.InvalidParam{Param: []string(nil)}),
 			mock: func() {
 				mockService.EXPECT().
 					Create(gomock.Any(), gomock.Any()).
 					Return(nil, errors.Error("service error"))
 			},
-			expectErr: errors.Error("service error"),
 		},
 	}
 
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			if tt.mock != nil {
 				tt.mock()
@@ -88,11 +82,13 @@ func TestCreate(t *testing.T) {
 
 			resp, err := handler.Create(ctx)
 
-			if tt.expectErr != nil {
-				assert.Error(t, err)
-			}
+			assert.Equalf(t, tt.result, resp,
+				"Failed [%v]:%v \t Got: %v \t Expected: %v",
+				tt.desc, i, resp, tt.result)
 
-			assert.Equal(t, tt.expectedRes, resp)
+			assert.Equalf(t, tt.mockErr, err,
+				"Failed [%v]:%v \t Got: %v \t Expected: %v",
+				tt.desc, i, err, tt.mockErr)
 		})
 	}
 }
@@ -101,35 +97,33 @@ func TestGet(t *testing.T) {
 	mockService, handler := Initialize(t)
 
 	tests := []struct {
-		desc        string
-		mock        func()
-		expectErr   error
-		expectedRes interface{}
+		desc    string
+		result  interface{}
+		mockErr error
+		mock    func()
 	}{
 		{
-			desc: "success",
+			desc:   "success",
+			result: []*department.Department{{Code: "IT"}},
 			mock: func() {
 				mockService.EXPECT().
 					Get(gomock.Any()).
-					Return([]*department.Department{
-						{Code: "IT"},
-					}, nil)
+					Return([]*department.Department{{Code: "IT"}}, nil)
 			},
-			expectErr:   nil,
-			expectedRes: []*department.Department{{Code: "IT"}},
 		},
 		{
-			desc: "service error",
+			desc:    "service error",
+			result:  nil,
+			mockErr: errors.Error("service error"),
 			mock: func() {
 				mockService.EXPECT().
 					Get(gomock.Any()).
 					Return(nil, errors.Error("service error"))
 			},
-			expectErr: errors.Error("service error"),
 		},
 	}
 
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			if tt.mock != nil {
 				tt.mock()
@@ -141,11 +135,13 @@ func TestGet(t *testing.T) {
 
 			resp, err := handler.Get(ctx)
 
-			if tt.expectErr != nil {
-				assert.Error(t, err)
-			}
+			assert.Equalf(t, tt.result, resp,
+				"Failed [%v]:%v \t Got: %v \t Expected: %v",
+				tt.desc, i, resp, tt.result)
 
-			assert.Equal(t, tt.expectedRes, resp)
+			assert.Equalf(t, tt.mockErr, err,
+				"Failed [%v]:%v \t Got: %v \t Expected: %v",
+				tt.desc, i, err, tt.mockErr)
 		})
 	}
 }
@@ -154,36 +150,36 @@ func TestGetByCode(t *testing.T) {
 	mockService, handler := Initialize(t)
 
 	tests := []struct {
-		desc        string
-		code        string
-		mock        func()
-		expectErr   error
-		expectedRes interface{}
+		desc    string
+		code    string
+		result  interface{}
+		mockErr error
+		mock    func()
 	}{
 		{
-			desc: "success",
-			code: "IT",
+			desc:   "success",
+			code:   "IT",
+			result: &department.Department{Code: "IT"},
 			mock: func() {
 				mockService.EXPECT().
 					GetByCode(gomock.Any(), "IT").
 					Return(&department.Department{Code: "IT"}, nil)
 			},
-			expectErr:   nil,
-			expectedRes: &department.Department{Code: "IT"},
 		},
 		{
-			desc: "service error",
-			code: "IT",
+			desc:    "service error",
+			code:    "IT",
+			result:  nil,
+			mockErr: errors.Error("service error"),
 			mock: func() {
 				mockService.EXPECT().
 					GetByCode(gomock.Any(), "IT").
 					Return(nil, errors.Error("service error"))
 			},
-			expectErr: errors.Error("service error"),
 		},
 	}
 
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			if tt.mock != nil {
 				tt.mock()
@@ -196,12 +192,13 @@ func TestGetByCode(t *testing.T) {
 
 			resp, err := handler.GetByCode(ctx)
 
-			if tt.expectErr != nil {
-				assert.Error(t, err)
-				return
-			}
+			assert.Equalf(t, tt.result, resp,
+				"Failed [%v]:%v \t Got: %v \t Expected: %v",
+				tt.desc, i, resp, tt.result)
 
-			assert.Equal(t, tt.expectedRes, resp)
+			assert.Equalf(t, tt.mockErr, err,
+				"Failed [%v]:%v \t Got: %v \t Expected: %v",
+				tt.desc, i, err, tt.mockErr)
 		})
 	}
 }
@@ -210,44 +207,46 @@ func TestUpdate(t *testing.T) {
 	mockService, handler := Initialize(t)
 
 	tests := []struct {
-		desc        string
-		code        string
-		body        []byte
-		mock        func()
-		expectErr   error
-		expectedRes interface{}
+		desc    string
+		code    string
+		body    []byte
+		result  interface{}
+		mockErr error
+		mock    func()
 	}{
 		{
-			desc: "success",
-			code: "IT",
-			body: []byte(`{"name":"Tech"}`),
+			desc:   "success",
+			code:   "IT",
+			body:   []byte(`{"name":"Tech"}`),
+			result: &department.Department{Code: "IT"},
 			mock: func() {
 				mockService.EXPECT().
 					Update(gomock.Any(), "IT", gomock.Any()).
 					Return(&department.Department{Code: "IT"}, nil)
 			},
-			expectedRes: &department.Department{Code: "IT"},
 		},
 		{
-			desc:      "bind error",
-			code:      "IT",
-			body:      []byte(`invalid`),
-			expectErr: errors.Error("invalid character 'i' looking for beginning of value"),
+			desc:    "bind error",
+			code:    "IT",
+			body:    []byte(`invalid`),
+			result:  nil,
+			mockErr: errors.Error("Binding failed"),
 		},
 		{
-			desc: "service error",
-			code: "IT",
-			body: []byte(`{"name":"Tech"}`),
+			desc:    "service error",
+			code:    "IT",
+			body:    []byte(`{"name":"Tech"}`),
+			result:  nil,
+			mockErr: errors.Error("service error"),
 			mock: func() {
 				mockService.EXPECT().
 					Update(gomock.Any(), "IT", gomock.Any()).
 					Return(nil, errors.Error("service error"))
 			},
-			expectErr: errors.Error("service error"),
 		},
 	}
 
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			if tt.mock != nil {
 				tt.mock()
@@ -260,12 +259,13 @@ func TestUpdate(t *testing.T) {
 
 			resp, err := handler.Update(ctx)
 
-			if tt.expectErr != nil {
-				assert.Error(t, err)
-				return
-			}
+			assert.Equalf(t, tt.result, resp,
+				"Failed [%v]:%v \t Got: %v \t Expected: %v",
+				tt.desc, i, resp, tt.result)
 
-			assert.Equal(t, tt.expectedRes, resp)
+			assert.Equalf(t, tt.mockErr, err,
+				"Failed [%v]:%v \t Got: %v \t Expected: %v",
+				tt.desc, i, err, tt.mockErr)
 		})
 	}
 }
@@ -274,36 +274,36 @@ func TestDelete(t *testing.T) {
 	mockService, handler := Initialize(t)
 
 	tests := []struct {
-		desc        string
-		code        string
-		mock        func()
-		expectErr   error
-		expectedRes interface{}
+		desc    string
+		code    string
+		result  interface{}
+		mockErr error
+		mock    func()
 	}{
 		{
-			desc: "success",
-			code: "IT",
+			desc:   "success",
+			code:   "IT",
+			result: "deleted",
 			mock: func() {
 				mockService.EXPECT().
 					Delete(gomock.Any(), "IT").
 					Return("deleted", nil)
 			},
-			expectErr:   nil,
-			expectedRes: "deleted",
 		},
 		{
-			desc: "service error",
-			code: "IT",
+			desc:    "service error",
+			code:    "IT",
+			result:  nil,
+			mockErr: errors.Error("service error"),
 			mock: func() {
 				mockService.EXPECT().
 					Delete(gomock.Any(), "IT").
 					Return("", errors.Error("service error"))
 			},
-			expectErr: errors.Error("service error"),
 		},
 	}
 
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			if tt.mock != nil {
 				tt.mock()
@@ -316,12 +316,13 @@ func TestDelete(t *testing.T) {
 
 			resp, err := handler.Delete(ctx)
 
-			if tt.expectErr != nil {
-				assert.Error(t, err)
-				return
-			}
+			assert.Equalf(t, tt.result, resp,
+				"Failed [%v]:%v \t Got: %v \t Expected: %v",
+				tt.desc, i, resp, tt.result)
 
-			assert.Equal(t, tt.expectedRes, resp)
+			assert.Equalf(t, tt.mockErr, err,
+				"Failed [%v]:%v \t Got: %v \t Expected: %v",
+				tt.desc, i, err, tt.mockErr)
 		})
 	}
 }

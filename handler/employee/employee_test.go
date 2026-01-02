@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -34,8 +35,8 @@ func TestCreate(t *testing.T) {
 		desc        string
 		body        []byte
 		mock        func()
-		expectErr   error
 		expectedRes interface{}
+		expectedErr error
 	}{
 		{
 			desc: "success",
@@ -45,13 +46,14 @@ func TestCreate(t *testing.T) {
 					Create(gomock.Any(), gomock.Any()).
 					Return(&employee.Employee{ID: 1}, nil)
 			},
-			expectErr:   nil,
 			expectedRes: &employee.Employee{ID: 1},
+			expectedErr: nil,
 		},
 		{
-			desc:      "bind error",
-			body:      []byte(`invalid-json`),
-			expectErr: errors.Error("invalid character 'i' looking for beginning of value"),
+			desc:        "bind error",
+			body:        []byte(`invalid-json`),
+			expectedRes: nil,
+			expectedErr: errors.Error("Binding failed"),
 		},
 		{
 			desc: "service error",
@@ -61,11 +63,12 @@ func TestCreate(t *testing.T) {
 					Create(gomock.Any(), gomock.Any()).
 					Return(nil, errors.Error("service error"))
 			},
-			expectErr: errors.Error("service error"),
+			expectedRes: nil,
+			expectedErr: errors.Error("service error"),
 		},
 	}
 
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			if tt.mock != nil {
 				tt.mock()
@@ -77,12 +80,8 @@ func TestCreate(t *testing.T) {
 
 			resp, err := handler.Create(ctx)
 
-			if tt.expectErr != nil {
-				assert.Error(t, err)
-				return
-			}
-
-			assert.Equal(t, tt.expectedRes, resp)
+			assert.Equalf(t, tt.expectedRes, resp, "case %d response mismatch", i)
+			assert.Equalf(t, tt.expectedErr, err, "case %d error mismatch", i)
 		})
 	}
 }
@@ -94,25 +93,23 @@ func TestGet(t *testing.T) {
 		desc        string
 		query       string
 		mock        func()
-		expectErr   error
 		expectedRes interface{}
+		expectedErr error
 	}{
 		{
-			desc:  "success with filters",
+			desc:  "success",
 			query: "?department=IT",
 			mock: func() {
 				mockService.EXPECT().
 					Get(gomock.Any(), gomock.Any()).
-					Return([]*employee.Employee{
-						{ID: 1},
-					}, nil)
+					Return([]*employee.Employee{{ID: 1}}, nil)
 			},
 			expectedRes: map[string]interface{}{
 				"data": map[string]interface{}{
 					"employees": []*employee.Employee{{ID: 1}},
 				},
 			},
-			expectErr: nil,
+			expectedErr: nil,
 		},
 		{
 			desc: "service error",
@@ -121,11 +118,12 @@ func TestGet(t *testing.T) {
 					Get(gomock.Any(), gomock.Any()).
 					Return(nil, errors.Error("service error"))
 			},
-			expectErr: errors.Error("service error"),
+			expectedRes: nil,
+			expectedErr: errors.Error("service error"),
 		},
 	}
 
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			if tt.mock != nil {
 				tt.mock()
@@ -137,12 +135,8 @@ func TestGet(t *testing.T) {
 
 			resp, err := handler.Get(ctx)
 
-			if tt.expectErr != nil {
-				assert.Error(t, err)
-				return
-			}
-
-			assert.Equal(t, tt.expectedRes, resp)
+			assert.Equalf(t, tt.expectedRes, resp, "case %d response mismatch", i)
+			assert.Equalf(t, tt.expectedErr, err, "case %d error mismatch", i)
 		})
 	}
 }
@@ -154,8 +148,8 @@ func TestGetById(t *testing.T) {
 		desc        string
 		id          string
 		mock        func()
-		expectErr   error
 		expectedRes interface{}
+		expectedErr error
 	}{
 		{
 			desc: "success",
@@ -166,11 +160,13 @@ func TestGetById(t *testing.T) {
 					Return(&employee.Employee{ID: 1}, nil)
 			},
 			expectedRes: &employee.Employee{ID: 1},
+			expectedErr: nil,
 		},
 		{
-			desc:      "invalid id",
-			id:        "abc",
-			expectErr: errors.EntityNotFound{Entity: "employee"},
+			desc:        "invalid id",
+			id:          "abc",
+			expectedRes: nil,
+			expectedErr: &strconv.NumError{Func: "Atoi", Num: "abc", Err: strconv.ErrSyntax},
 		},
 		{
 			desc: "service error",
@@ -180,11 +176,12 @@ func TestGetById(t *testing.T) {
 					GetById(gomock.Any(), 1).
 					Return(nil, errors.Error("service error"))
 			},
-			expectErr: errors.Error("service error"),
+			expectedRes: nil,
+			expectedErr: errors.Error("service error"),
 		},
 	}
 
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			if tt.mock != nil {
 				tt.mock()
@@ -197,12 +194,8 @@ func TestGetById(t *testing.T) {
 
 			resp, err := handler.GetById(ctx)
 
-			if tt.expectErr != nil {
-				assert.Error(t, err)
-				return
-			}
-
-			assert.Equal(t, tt.expectedRes, resp)
+			assert.Equalf(t, tt.expectedRes, resp, "case %d response mismatch", i)
+			assert.Equalf(t, tt.expectedErr, err, "case %d error mismatch", i)
 		})
 	}
 }
@@ -215,8 +208,8 @@ func TestUpdate(t *testing.T) {
 		id          string
 		body        []byte
 		mock        func()
-		expectErr   error
 		expectedRes interface{}
+		expectedErr error
 	}{
 		{
 			desc: "success",
@@ -227,19 +220,21 @@ func TestUpdate(t *testing.T) {
 					Update(gomock.Any(), 1, gomock.Any()).
 					Return(&employee.Employee{ID: 1}, nil)
 			},
-			expectErr:   nil,
 			expectedRes: &employee.Employee{ID: 1},
+			expectedErr: nil,
 		},
 		{
-			desc:      "invalid id",
-			id:        "abc",
-			expectErr: errors.EntityNotFound{Entity: "employee"},
+			desc:        "invalid id",
+			id:          "abc",
+			expectedRes: nil,
+			expectedErr: &strconv.NumError{Func: "Atoi", Num: "abc", Err: strconv.ErrSyntax},
 		},
 		{
-			desc:      "bind error",
-			id:        "1",
-			body:      []byte(`invalid`),
-			expectErr: errors.Error("invalid character 'i' looking for beginning of value"),
+			desc:        "bind error",
+			id:          "1",
+			body:        []byte(`invalid`),
+			expectedRes: nil,
+			expectedErr: errors.Error("Binding failed"),
 		},
 		{
 			desc: "service error",
@@ -250,11 +245,12 @@ func TestUpdate(t *testing.T) {
 					Update(gomock.Any(), 1, gomock.Any()).
 					Return(nil, errors.Error("service error"))
 			},
-			expectErr: errors.Error("service error"),
+			expectedRes: nil,
+			expectedErr: errors.Error("service error"),
 		},
 	}
 
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			if tt.mock != nil {
 				tt.mock()
@@ -267,12 +263,8 @@ func TestUpdate(t *testing.T) {
 
 			resp, err := handler.Update(ctx)
 
-			if tt.expectErr != nil {
-				assert.Error(t, err)
-				return
-			}
-
-			assert.Equal(t, tt.expectedRes, resp)
+			assert.Equalf(t, tt.expectedRes, resp, "case %d response mismatch", i)
+			assert.Equalf(t, tt.expectedErr, err, "case %d error mismatch", i)
 		})
 	}
 }
@@ -284,8 +276,8 @@ func TestDelete(t *testing.T) {
 		desc        string
 		id          string
 		mock        func()
-		expectErr   error
 		expectedRes interface{}
+		expectedErr error
 	}{
 		{
 			desc: "success",
@@ -296,11 +288,13 @@ func TestDelete(t *testing.T) {
 					Return("deleted", nil)
 			},
 			expectedRes: "deleted",
+			expectedErr: nil,
 		},
 		{
-			desc:      "invalid id",
-			id:        "abc",
-			expectErr: errors.EntityNotFound{Entity: "employee"},
+			desc:        "invalid id",
+			id:          "abc",
+			expectedRes: nil,
+			expectedErr: &strconv.NumError{"Atoi", "abc", strconv.ErrSyntax},
 		},
 		{
 			desc: "service error",
@@ -310,11 +304,12 @@ func TestDelete(t *testing.T) {
 					Delete(gomock.Any(), 1).
 					Return("", errors.Error("service error"))
 			},
-			expectErr: errors.Error("service error"),
+			expectedRes: nil,
+			expectedErr: errors.Error("service error"),
 		},
 	}
 
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			if tt.mock != nil {
 				tt.mock()
@@ -327,12 +322,8 @@ func TestDelete(t *testing.T) {
 
 			resp, err := handler.Delete(ctx)
 
-			if tt.expectErr != nil {
-				assert.Error(t, err)
-				return
-			}
-
-			assert.Equal(t, tt.expectedRes, resp)
+			assert.Equalf(t, tt.expectedRes, resp, "case %d response mismatch", i)
+			assert.Equalf(t, tt.expectedErr, err, "case %d error mismatch", i)
 		})
 	}
 }
