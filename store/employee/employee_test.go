@@ -3,7 +3,7 @@ package employee
 import (
 	"context"
 	"database/sql"
-	"database/sql/driver"
+	"fmt"
 	"testing"
 	"time"
 
@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"developer.zopsmart.com/go/gofr/pkg/datastore"
+	"developer.zopsmart.com/go/gofr/pkg/errors"
 	"developer.zopsmart.com/go/gofr/pkg/gofr"
 
 	"demo-service/models/employee"
@@ -31,6 +32,7 @@ func Initialize(t *testing.T) (*gomock.Controller, *gofr.Context, sqlmock.Sqlmoc
 
 	return ctrl, ctx, mock, err
 }
+
 func TestCreate(t *testing.T) {
 	_, ctx, mock, err := Initialize(t)
 	if err != nil {
@@ -43,30 +45,6 @@ func TestCreate(t *testing.T) {
 
 	dob := time.Now().String()
 
-	tests := []struct {
-		desc      string
-		result    driver.Result
-		mockErr   error
-		expectErr bool
-	}{
-		{
-			desc:      "exec error",
-			mockErr:   sql.ErrConnDone,
-			expectErr: true,
-		},
-		{
-			desc:      "last insert id error",
-			result:    sqlmock.NewErrorResult(sql.ErrConnDone),
-			mockErr:   sql.ErrConnDone,
-			expectErr: true,
-		},
-		{
-			desc:    "success",
-			result:  sqlmock.NewResult(1, 1),
-			mockErr: nil,
-		},
-	}
-
 	input := &employee.NewEmployee{
 		Name:        "John",
 		Email:       "john@test.com",
@@ -77,9 +55,29 @@ func TestCreate(t *testing.T) {
 		Department:  "IT",
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.desc, func(t *testing.T) {
-			mock.ExpectExec(query).
+	resp := &employee.Employee{
+		ID:          1,
+		Name:        "John",
+		Email:       "john@test.com",
+		PhoneNumber: "999",
+		DOB:         dob,
+		Major:       "CS",
+		City:        "NY",
+		Department:  "IT",
+	}
+
+	tests := []struct {
+		desc      string
+		result    *employee.Employee
+		mock      *sqlmock.ExpectedExec
+		mockErr   error
+		expectErr bool
+	}{
+		{
+			desc:      "exec error",
+			mockErr:   sql.ErrConnDone,
+			expectErr: true,
+			mock: mock.ExpectExec(query).
 				WithArgs(
 					input.Name,
 					input.Email,
@@ -88,15 +86,46 @@ func TestCreate(t *testing.T) {
 					input.Major,
 					input.City,
 					input.Department,
-				).WillReturnResult(tt.result).WillReturnError(tt.mockErr)
+				).WillReturnResult(nil).WillReturnError(sql.ErrConnDone),
+		},
+		{
+			desc:      "last insert id error",
+			mockErr:   sql.ErrConnDone,
+			expectErr: true,
+			mock: mock.ExpectExec(query).
+				WithArgs(
+					input.Name,
+					input.Email,
+					input.PhoneNumber,
+					input.DOB,
+					input.Major,
+					input.City,
+					input.Department,
+				).WillReturnResult(nil).WillReturnError(sql.ErrConnDone),
+		},
+		{
+			desc:    "success",
+			result:  resp,
+			mockErr: nil,
+			mock: mock.ExpectExec(query).
+				WithArgs(
+					input.Name,
+					input.Email,
+					input.PhoneNumber,
+					input.DOB,
+					input.Major,
+					input.City,
+					input.Department,
+				).WillReturnResult(sqlmock.NewResult(1, 1)).WillReturnError(nil),
+		},
+	}
 
-			_, err := store.Create(ctx, input)
+	for i, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			resp, err := store.Create(ctx, input)
 
-			if tt.expectErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
+			assert.Equalf(t, tt.result, resp, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, tt.result, resp)
+			assert.Equalf(t, tt.mockErr, err, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, tt.mockErr, resp)
 		})
 	}
 }
@@ -111,72 +140,98 @@ func TestGet(t *testing.T) {
 
 	baseQuery := `
 		SELECT
-			id, name, email, phone_number, dob, major, city, department
+			id,
+			name,
+			email,
+			phone_number,
+			dob,
+			major,
+			city,
+			department
 		FROM employees
 		WHERE 1 = 1
 	`
 
+	now := time.Now().String()
+
+	successResp := []*employee.Employee{
+		{
+			ID:          1,
+			Name:        "x",
+			Email:       "x",
+			PhoneNumber: "x",
+			DOB:         now,
+			Major:       "x",
+			City:        "x",
+			Department:  "IT",
+		},
+	}
+
 	tests := []struct {
-		desc      string
-		filter    employee.Filter
-		mockSetup func()
-		expectErr bool
+		desc    string
+		filter  employee.Filter
+		mock    func()
+		result  []*employee.Employee
+		mockErr error
 	}{
 		{
 			desc: "query error",
-			mockSetup: func() {
+			mock: func() {
 				mock.ExpectQuery(baseQuery).
 					WillReturnError(sql.ErrConnDone)
 			},
-			expectErr: true,
+			mockErr: sql.ErrConnDone,
 		},
 		{
 			desc: "scan error",
-			mockSetup: func() {
-				rows := sqlmock.NewRows(
+			mock: func() {
+				_ = sqlmock.NewRows(
 					[]string{"id", "name", "email", "phone_number", "dob", "major", "city", "department"},
-				).AddRow("BAD", "x", "x", "x", time.Now(), "x", "x", "x")
+				).AddRow("BAD", "x", "x", "x", now, "x", "x", "x")
 
 				mock.ExpectQuery(baseQuery).
-					WillReturnRows(rows)
+					WillReturnError(fmt.Errorf("%w", errors.Error(`sql: Scan error on column index 0, name "id": converting driver.Value type string ("BAD") to a int: invalid syntax`)))
 			},
-			expectErr: true,
+			mockErr: fmt.Errorf("%w", errors.Error(`sql: Scan error on column index 0, name "id": converting driver.Value type string ("BAD") to a int: invalid syntax`)),
 		},
 		{
 			desc: "rows error",
-			mockSetup: func() {
+			mock: func() {
 				rows := sqlmock.NewRows(
 					[]string{"id", "name", "email", "phone_number", "dob", "major", "city", "department"},
-				).AddRow(1, "x", "x", "x", time.Now(), "x", "x", "x").
+				).
+					AddRow(1, "x", "x", "x", now, "x", "x", "IT").
 					RowError(0, sql.ErrConnDone)
 
 				mock.ExpectQuery(baseQuery).
 					WillReturnRows(rows)
 			},
-			expectErr: true,
+			mockErr: sql.ErrConnDone,
 		},
 		{
 			desc: "success",
-			mockSetup: func() {
+			mock: func() {
 				rows := sqlmock.NewRows(
 					[]string{"id", "name", "email", "phone_number", "dob", "major", "city", "department"},
-				).AddRow(1, "x", "x", "x", time.Now(), "x", "x", "IT")
+				).
+					AddRow(1, "x", "x", "x", now, "x", "x", "IT")
 
 				mock.ExpectQuery(baseQuery).
 					WillReturnRows(rows)
 			},
+			result:  successResp,
+			mockErr: nil,
 		},
 	}
 
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			tt.mockSetup()
-			_, err := store.Get(ctx, employee.Filter{})
-			if tt.expectErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
+			tt.mock()
+
+			resp, err := store.Get(ctx, tt.filter)
+
+			assert.Equalf(t, tt.result, resp, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, resp, tt.result)
+			assert.Equalf(t, tt.mockErr, err, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, err, tt.mockErr)
 		})
 	}
 }
@@ -195,26 +250,49 @@ func TestGetById(t *testing.T) {
 		WHERE id = ?
 	`
 
+	successResp := &employee.Employee{
+		ID:          1,
+		Name:        "x",
+		Email:       "x",
+		PhoneNumber: "x",
+		DOB:         time.Now().String(),
+		Major:       "x",
+		City:        "x",
+		Department:  "IT",
+	}
+
 	tests := []struct {
-		desc      string
-		mockSetup func()
-		expectErr bool
+		desc    string
+		result  *employee.Employee
+		mock    func()
+		mockErr error
 	}{
 		{
-			desc: "query error",
-			mockSetup: func() {
+			desc:    "query error",
+			mockErr: sql.ErrNoRows,
+			mock: func() {
 				mock.ExpectQuery(query).
 					WithArgs(1).
 					WillReturnError(sql.ErrNoRows)
 			},
-			expectErr: true,
 		},
 		{
-			desc: "success",
-			mockSetup: func() {
+			desc:    "success",
+			result:  successResp,
+			mockErr: nil,
+			mock: func() {
 				rows := sqlmock.NewRows(
 					[]string{"id", "name", "email", "phone_number", "dob", "major", "city", "department"},
-				).AddRow(1, "x", "x", "x", time.Now(), "x", "x", "IT")
+				).AddRow(
+					1,
+					"x",
+					"x",
+					"x",
+					successResp.DOB,
+					"x",
+					"x",
+					"IT",
+				)
 
 				mock.ExpectQuery(query).
 					WithArgs(1).
@@ -223,15 +301,14 @@ func TestGetById(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			tt.mockSetup()
-			_, err := store.GetById(ctx, 1)
-			if tt.expectErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
+			tt.mock()
+
+			resp, err := store.GetById(ctx, 1)
+
+			assert.Equalf(t, tt.result, resp, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, resp, tt.result)
+			assert.Equalf(t, tt.mockErr, err, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, err, tt.mockErr)
 		})
 	}
 }
@@ -269,54 +346,90 @@ func TestUpdate(t *testing.T) {
 		Department:  "IT",
 	}
 
+	successResp := &employee.Employee{
+		ID:          1,
+		Name:        "A",
+		Email:       "a@a.com",
+		PhoneNumber: "1",
+		DOB:         dob,
+		Major:       "CS",
+		City:        "NY",
+		Department:  "IT",
+	}
+
 	tests := []struct {
-		desc      string
-		result    driver.Result
-		mockErr   error
-		expectErr bool
+		desc    string
+		result  *employee.Employee
+		mock    func()
+		mockErr error
 	}{
 		{
-			desc:      "exec error",
-			mockErr:   sql.ErrConnDone,
-			expectErr: true,
+			desc:    "exec error",
+			result:  nil,
+			mockErr: sql.ErrConnDone,
+			mock: func() {
+				mock.ExpectExec(query).
+					WithArgs(
+						input.Name,
+						input.Email,
+						input.PhoneNumber,
+						input.DOB,
+						input.Major,
+						input.City,
+						input.Department,
+						1,
+					).
+					WillReturnError(sql.ErrConnDone)
+			},
 		},
 		{
-			desc:      "no rows affected",
-			result:    sqlmock.NewResult(0, 0),
-			expectErr: true,
+			desc:    "no rows affected",
+			result:  nil,
+			mockErr: sql.ErrNoRows,
+			mock: func() {
+				mock.ExpectExec(query).
+					WithArgs(
+						input.Name,
+						input.Email,
+						input.PhoneNumber,
+						input.DOB,
+						input.Major,
+						input.City,
+						input.Department,
+						1,
+					).
+					WillReturnResult(sqlmock.NewResult(0, 0))
+			},
 		},
 		{
-			desc:   "success",
-			result: sqlmock.NewResult(1, 1),
+			desc:    "success",
+			result:  successResp,
+			mockErr: nil,
+			mock: func() {
+				mock.ExpectExec(query).
+					WithArgs(
+						input.Name,
+						input.Email,
+						input.PhoneNumber,
+						input.DOB,
+						input.Major,
+						input.City,
+						input.Department,
+						1,
+					).
+					WillReturnResult(sqlmock.NewResult(1, 1))
+			},
 		},
 	}
 
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			exp := mock.ExpectExec(query).
-				WithArgs(
-					input.Name,
-					input.Email,
-					input.PhoneNumber,
-					input.DOB,
-					input.Major,
-					input.City,
-					input.Department,
-					1,
-				)
+			tt.mock()
 
-			if tt.mockErr != nil {
-				exp.WillReturnError(tt.mockErr)
-			} else {
-				exp.WillReturnResult(tt.result)
-			}
+			resp, err := store.Update(ctx, 1, input)
 
-			_, err := store.Update(ctx, 1, input)
-			if tt.expectErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
+			assert.Equalf(t, tt.result, resp, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, resp, tt.result)
+			assert.Equalf(t, tt.mockErr, err, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, err, tt.mockErr)
 		})
 	}
 }
@@ -332,42 +445,51 @@ func TestDelete(t *testing.T) {
 	query := `DELETE FROM employees WHERE id = ?`
 
 	tests := []struct {
-		desc      string
-		result    driver.Result
-		mockErr   error
-		expectErr bool
+		desc    string
+		result  string
+		mock    func()
+		mockErr error
 	}{
 		{
-			desc:      "exec error",
-			mockErr:   sql.ErrConnDone,
-			expectErr: true,
+			desc:    "exec error",
+			result:  "",
+			mockErr: sql.ErrConnDone,
+			mock: func() {
+				mock.ExpectExec(query).
+					WithArgs(1).
+					WillReturnError(sql.ErrConnDone)
+			},
 		},
 		{
-			desc:      "no rows deleted",
-			result:    sqlmock.NewResult(0, 0),
-			expectErr: true,
+			desc:    "no rows deleted",
+			result:  "",
+			mockErr: sql.ErrNoRows,
+			mock: func() {
+				mock.ExpectExec(query).
+					WithArgs(1).
+					WillReturnResult(sqlmock.NewResult(0, 0))
+			},
 		},
 		{
-			desc:   "success",
-			result: sqlmock.NewResult(1, 1),
+			desc:    "success",
+			result:  "Employee deleted successfully",
+			mockErr: nil,
+			mock: func() {
+				mock.ExpectExec(query).
+					WithArgs(1).
+					WillReturnResult(sqlmock.NewResult(1, 1))
+			},
 		},
 	}
 
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			exp := mock.ExpectExec(query).WithArgs(1)
-			if tt.mockErr != nil {
-				exp.WillReturnError(tt.mockErr)
-			} else {
-				exp.WillReturnResult(tt.result)
-			}
+			tt.mock()
 
-			_, err := store.Delete(ctx, 1)
-			if tt.expectErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
+			resp, err := store.Delete(ctx, 1)
+
+			assert.Equalf(t, tt.result, resp, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, resp, tt.result)
+			assert.Equalf(t, tt.mockErr, err, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, err, tt.mockErr)
 		})
 	}
 }
@@ -384,59 +506,62 @@ func TestExistsByEmail(t *testing.T) {
 		desc      string
 		email     string
 		excludeID *int
-		count     int
-		expect    bool
-		expectErr bool
+		result    bool
+		mockErr   error
+		mock      func()
 	}{
 		{
-			desc:   "exists without exclude",
-			email:  "a@a.com",
-			count:  1,
-			expect: true,
+			desc:    "exists without exclude",
+			email:   "a@a.com",
+			result:  true,
+			mockErr: nil,
+			mock: func() {
+				rows := sqlmock.NewRows([]string{"count"}).AddRow(1)
+				mock.ExpectQuery(
+					`SELECT COUNT(1) FROM employees WHERE email = ?`,
+				).
+					WithArgs("a@a.com").
+					WillReturnRows(rows)
+			},
 		},
 		{
 			desc:      "exists with exclude",
 			email:     "a@a.com",
 			excludeID: intPtr(1),
-			count:     1,
-			expect:    true,
+			result:    true,
+			mockErr:   nil,
+			mock: func() {
+				rows := sqlmock.NewRows([]string{"count"}).AddRow(1)
+				mock.ExpectQuery(
+					`SELECT COUNT(1) FROM employees WHERE email = ? AND id != ?`,
+				).
+					WithArgs("a@a.com", 1).
+					WillReturnRows(rows)
+			},
 		},
 		{
-			desc:      "query error",
-			email:     "a@a.com",
-			expectErr: true,
+			desc:    "query error",
+			email:   "a@a.com",
+			result:  false,
+			mockErr: sql.ErrConnDone,
+			mock: func() {
+				mock.ExpectQuery(
+					`SELECT COUNT(1) FROM employees WHERE email = ? AND id != ?`,
+				).
+					WithArgs("a@a.com").
+					WillReturnError(sql.ErrConnDone)
+			},
 		},
 	}
 
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			query := `SELECT COUNT(1) FROM employees WHERE email = ?`
-			args := []driver.Value{tt.email}
+			tt.mock()
 
-			if tt.excludeID != nil {
-				query += ` AND id != ?`
-				args = append(args, *tt.excludeID)
-			}
+			resp, err := store.ExistsByEmail(ctx, tt.email, tt.excludeID)
 
-			if tt.expectErr {
-				mock.ExpectQuery(query).
-					WithArgs(args...).
-					WillReturnError(sql.ErrConnDone)
-			} else {
-				rows := sqlmock.NewRows([]string{"count"}).AddRow(tt.count)
-				mock.ExpectQuery(query).
-					WithArgs(args...).
-					WillReturnRows(rows)
-			}
-
-			res, err := store.ExistsByEmail(ctx, tt.email, tt.excludeID)
-
-			if tt.expectErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expect, res)
-			}
+			assert.Equalf(t, tt.result, resp, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, resp, tt.result)
+			assert.Equalf(t, tt.mockErr, err, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, err, tt.mockErr)
 		})
 	}
 }
@@ -456,41 +581,42 @@ func TestCountByDepartment(t *testing.T) {
 	`
 
 	tests := []struct {
-		desc      string
-		count     int
-		expectErr bool
+		desc    string
+		result  int
+		mockErr error
+		mock    func()
 	}{
 		{
-			desc:      "query error",
-			expectErr: true,
-		},
-		{
-			desc:  "success",
-			count: 3,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.desc, func(t *testing.T) {
-			if tt.expectErr {
+			desc:    "query error",
+			result:  0,
+			mockErr: sql.ErrConnDone,
+			mock: func() {
 				mock.ExpectQuery(query).
 					WithArgs("IT").
 					WillReturnError(sql.ErrConnDone)
-			} else {
-				rows := sqlmock.NewRows([]string{"count"}).AddRow(tt.count)
+			},
+		},
+		{
+			desc:    "success",
+			result:  3,
+			mockErr: nil,
+			mock: func() {
+				rows := sqlmock.NewRows([]string{"count"}).AddRow(3)
 				mock.ExpectQuery(query).
 					WithArgs("IT").
 					WillReturnRows(rows)
-			}
+			},
+		},
+	}
 
-			res, err := store.CountByDepartment(ctx, "IT")
+	for i, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			tt.mock()
 
-			if tt.expectErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.count, res)
-			}
+			resp, err := store.CountByDepartment(ctx, "IT")
+
+			assert.Equalf(t, tt.result, resp, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, resp, tt.result)
+			assert.Equalf(t, tt.mockErr, err, "Failed [%v]:%v \t Got: %v \t Expected: %v", tt.desc, i, err, tt.mockErr)
 		})
 	}
 }
