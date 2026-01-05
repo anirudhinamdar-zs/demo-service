@@ -41,7 +41,7 @@ func TestCreate(t *testing.T) {
 
 	store := Init()
 
-	query := `INSERT INTO employees (name, email, phone_number, dob, major, city, department) VALUES (?, ?, ?, ?, ?, ?, ?)`
+	query := `INSERT INTO employees (name, email, phone_number, dob, major, city, department, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, NULL)`
 
 	dob := time.Now().String()
 
@@ -67,16 +67,14 @@ func TestCreate(t *testing.T) {
 	}
 
 	tests := []struct {
-		desc      string
-		result    *employee.Employee
-		mock      *sqlmock.ExpectedExec
-		mockErr   error
-		expectErr bool
+		desc    string
+		result  *employee.Employee
+		mock    *sqlmock.ExpectedExec
+		mockErr error
 	}{
 		{
-			desc:      "exec error",
-			mockErr:   sql.ErrConnDone,
-			expectErr: true,
+			desc:    "exec error",
+			mockErr: sql.ErrConnDone,
 			mock: mock.ExpectExec(query).
 				WithArgs(
 					input.Name,
@@ -89,9 +87,8 @@ func TestCreate(t *testing.T) {
 				).WillReturnResult(nil).WillReturnError(sql.ErrConnDone),
 		},
 		{
-			desc:      "last insert id error",
-			mockErr:   sql.ErrConnDone,
-			expectErr: true,
+			desc:    "last insert id error",
+			mockErr: sql.ErrConnDone,
 			mock: mock.ExpectExec(query).
 				WithArgs(
 					input.Name,
@@ -147,9 +144,10 @@ func TestGet(t *testing.T) {
 			dob,
 			major,
 			city,
-			department
+			department,
+			deleted_at
 		FROM employees
-		WHERE 1 = 1
+		WHERE deleted_at IS NULL
 	`
 
 	now := time.Now().String()
@@ -164,6 +162,7 @@ func TestGet(t *testing.T) {
 			Major:       "x",
 			City:        "x",
 			Department:  "IT",
+			DeletedAt:   nil,
 		},
 	}
 
@@ -186,8 +185,8 @@ func TestGet(t *testing.T) {
 			desc: "scan error",
 			mock: func() {
 				_ = sqlmock.NewRows(
-					[]string{"id", "name", "email", "phone_number", "dob", "major", "city", "department"},
-				).AddRow("BAD", "x", "x", "x", now, "x", "x", "x")
+					[]string{"id", "name", "email", "phone_number", "dob", "major", "city", "department", "deleted_at"},
+				).AddRow("BAD", "x", "x", "x", now, "x", "x", "x", "x")
 
 				mock.ExpectQuery(baseQuery).
 					WillReturnError(fmt.Errorf("%w", errors.Error(`sql: Scan error on column index 0, name "id": converting driver.Value type string ("BAD") to a int: invalid syntax`)))
@@ -212,9 +211,9 @@ func TestGet(t *testing.T) {
 			desc: "success",
 			mock: func() {
 				rows := sqlmock.NewRows(
-					[]string{"id", "name", "email", "phone_number", "dob", "major", "city", "department"},
+					[]string{"id", "name", "email", "phone_number", "dob", "major", "city", "department", "deleted_at"},
 				).
-					AddRow(1, "x", "x", "x", now, "x", "x", "IT")
+					AddRow(1, "x", "x", "x", now, "x", "x", "IT", nil)
 
 				mock.ExpectQuery(baseQuery).
 					WillReturnRows(rows)
@@ -245,9 +244,9 @@ func TestGetById(t *testing.T) {
 	store := Init()
 
 	query := `
-		SELECT id, name, email, phone_number, dob, major, city, department
+		SELECT id, name, email, phone_number, dob, major, city, department, deleted_at
 		FROM employees
-		WHERE id = ?
+		WHERE id = ? AND deleted_at IS NULL
 	`
 
 	successResp := &employee.Employee{
@@ -259,6 +258,7 @@ func TestGetById(t *testing.T) {
 		Major:       "x",
 		City:        "x",
 		Department:  "IT",
+		DeletedAt:   nil,
 	}
 
 	tests := []struct {
@@ -282,7 +282,7 @@ func TestGetById(t *testing.T) {
 			mockErr: nil,
 			mock: func() {
 				rows := sqlmock.NewRows(
-					[]string{"id", "name", "email", "phone_number", "dob", "major", "city", "department"},
+					[]string{"id", "name", "email", "phone_number", "dob", "major", "city", "department", "deleted_at"},
 				).AddRow(
 					1,
 					"x",
@@ -292,6 +292,7 @@ func TestGetById(t *testing.T) {
 					"x",
 					"x",
 					"IT",
+					nil,
 				)
 
 				mock.ExpectQuery(query).
@@ -331,13 +332,13 @@ func TestUpdate(t *testing.T) {
 			major = ?,
 			city = ?,
 			department = ?
-		WHERE id = ?
+		WHERE id = ? AND deleted_at IS NULL
 	`
 
 	getByIDQuery := `
-		SELECT id, name, email, phone_number, dob, major, city, department
+		SELECT id, name, email, phone_number, dob, major, city, department, deleted_at
 		FROM employees
-		WHERE id = ?
+		WHERE id = ? AND deleted_at IS NULL
 	`
 
 	dob := time.Now().String()
@@ -426,7 +427,7 @@ func TestUpdate(t *testing.T) {
 					WillReturnResult(sqlmock.NewResult(1, 1))
 
 				rows := sqlmock.NewRows(
-					[]string{"id", "name", "email", "phone_number", "dob", "major", "city", "department"},
+					[]string{"id", "name", "email", "phone_number", "dob", "major", "city", "department", "deleted_at"},
 				).AddRow(
 					1,
 					input.Name,
@@ -436,6 +437,7 @@ func TestUpdate(t *testing.T) {
 					input.Major,
 					input.City,
 					input.Department,
+					nil,
 				)
 
 				mock.ExpectQuery(getByIDQuery).
@@ -465,7 +467,7 @@ func TestDelete(t *testing.T) {
 
 	store := Init()
 
-	query := `DELETE FROM employees WHERE id = ?`
+	query := `UPDATE employees SET deleted_at = CURRENT_DATE WHERE id = ? AND deleted_at IS NULL`
 
 	tests := []struct {
 		desc    string
@@ -541,7 +543,7 @@ func TestExistsByEmail(t *testing.T) {
 			mock: func() {
 				rows := sqlmock.NewRows([]string{"count"}).AddRow(1)
 				mock.ExpectQuery(
-					`SELECT COUNT(1) FROM employees WHERE email = ?`,
+					`SELECT COUNT(1) FROM employees WHERE email = ? AND deleted_at IS NULL`,
 				).
 					WithArgs("a@a.com").
 					WillReturnRows(rows)
@@ -556,7 +558,7 @@ func TestExistsByEmail(t *testing.T) {
 			mock: func() {
 				rows := sqlmock.NewRows([]string{"count"}).AddRow(1)
 				mock.ExpectQuery(
-					`SELECT COUNT(1) FROM employees WHERE email = ? AND id != ?`,
+					`SELECT COUNT(1) FROM employees WHERE email = ? AND deleted_at IS NULL AND id != ?`,
 				).
 					WithArgs("a@a.com", 1).
 					WillReturnRows(rows)
@@ -569,7 +571,7 @@ func TestExistsByEmail(t *testing.T) {
 			mockErr: sql.ErrConnDone,
 			mock: func() {
 				mock.ExpectQuery(
-					`SELECT COUNT(1) FROM employees WHERE email = ? AND id != ?`,
+					`SELECT COUNT(1) FROM employees WHERE email = ? AND deleted_at IS NULL AND id != ?`,
 				).
 					WithArgs("a@a.com").
 					WillReturnError(sql.ErrConnDone)
@@ -600,7 +602,7 @@ func TestCountByDepartment(t *testing.T) {
 	query := `
 		SELECT COUNT(1)
 		FROM employees
-		WHERE department = ?
+		WHERE department = ? AND deleted_at IS NULL
 	`
 
 	tests := []struct {

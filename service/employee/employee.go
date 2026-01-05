@@ -52,10 +52,27 @@ func (e *Employee) Get(ctx *gofr.Context, filter employee.Filter) ([]*employee.E
 }
 
 func (e *Employee) GetById(ctx *gofr.Context, employeeId int) (*employee.Employee, error) {
-	return e.store.GetById(ctx, employeeId)
+	emp, err := e.store.GetById(ctx, employeeId)
+	if err != nil {
+		return nil, err
+	}
+
+	if emp.DeletedAt != nil {
+		return nil, errors.EntityNotFound{Entity: "employee"}
+	}
+
+	return emp, nil
 }
 
 func (e *Employee) Update(ctx *gofr.Context, id int, emp *employee.NewEmployee) (*employee.Employee, error) {
+	existing, err := e.store.GetById(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if existing.DeletedAt != nil {
+		return nil, errors.EntityNotFound{Entity: "employee"}
+	}
+
 	if emp.Department != "" {
 		if !department.IsValidCode(emp.Department) {
 			return nil, errors.EntityNotFound{Entity: emp.Department}
@@ -80,5 +97,13 @@ func (e *Employee) Update(ctx *gofr.Context, id int, emp *employee.NewEmployee) 
 }
 
 func (e *Employee) Delete(ctx *gofr.Context, employeeId int) (string, error) {
+	emp, err := e.store.GetById(ctx, employeeId)
+	if err != nil {
+		return "", err
+	}
+	if emp.DeletedAt != nil {
+		return "", errors.EntityNotFound{Entity: "employee"}
+	}
+
 	return e.store.Delete(ctx, employeeId)
 }

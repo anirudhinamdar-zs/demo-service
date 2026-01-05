@@ -3,6 +3,7 @@ package employee
 import (
 	"testing"
 
+	"github.com/Azure/go-autorest/autorest/date"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
@@ -264,7 +265,9 @@ func TestEmployeeService_Update(t *testing.T) {
 				Department: invalidDept,
 			},
 			mock: func(emp *store.MockEmployee, dep *store.MockDepartment) {
-				// no store calls expected
+				emp.EXPECT().
+					GetById(gomock.Any(), id).
+					Return(&employee.Employee{ID: id}, nil)
 			},
 			result:  nil,
 			mockErr: errors.EntityNotFound{Entity: invalidDept},
@@ -276,6 +279,10 @@ func TestEmployeeService_Update(t *testing.T) {
 				Email:      "a@a.com",
 			},
 			mock: func(emp *store.MockEmployee, dep *store.MockDepartment) {
+				emp.EXPECT().
+					GetById(gomock.Any(), id).
+					Return(&employee.Employee{ID: id}, nil)
+
 				dep.EXPECT().
 					GetByCode(gomock.Any(), validDept).
 					Return(nil, errors.EntityNotFound{Entity: validDept})
@@ -290,6 +297,10 @@ func TestEmployeeService_Update(t *testing.T) {
 				Email:      "a@a.com",
 			},
 			mock: func(emp *store.MockEmployee, dep *store.MockDepartment) {
+				emp.EXPECT().
+					GetById(gomock.Any(), id).
+					Return(&employee.Employee{ID: id}, nil)
+
 				dep.EXPECT().
 					GetByCode(gomock.Any(), validDept).
 					Return(&department.Department{}, nil)
@@ -308,6 +319,10 @@ func TestEmployeeService_Update(t *testing.T) {
 				Email:      "a@a.com",
 			},
 			mock: func(emp *store.MockEmployee, dep *store.MockDepartment) {
+				emp.EXPECT().
+					GetById(gomock.Any(), id).
+					Return(&employee.Employee{ID: id}, nil)
+
 				dep.EXPECT().
 					GetByCode(gomock.Any(), validDept).
 					Return(&department.Department{}, nil)
@@ -348,6 +363,8 @@ func TestEmployeeService_Delete(t *testing.T) {
 
 	ctx := &gofr.Context{}
 
+	deletedDate := date.Date{}
+
 	tests := []struct {
 		desc    string
 		id      int
@@ -360,6 +377,10 @@ func TestEmployeeService_Delete(t *testing.T) {
 			id:   1,
 			mock: func(emp *store.MockEmployee) {
 				emp.EXPECT().
+					GetById(gomock.Any(), 1).
+					Return(&employee.Employee{ID: 1}, nil)
+
+				emp.EXPECT().
 					Delete(gomock.Any(), 1).
 					Return("Employee deleted successfully", nil)
 			},
@@ -367,15 +388,18 @@ func TestEmployeeService_Delete(t *testing.T) {
 			mockErr: nil,
 		},
 		{
-			desc: "not found",
-			id:   99,
+			desc: "already deleted",
+			id:   1,
 			mock: func(emp *store.MockEmployee) {
 				emp.EXPECT().
-					Delete(gomock.Any(), 99).
-					Return("", errors.EntityNotFound{})
+					GetById(gomock.Any(), 1).
+					Return(&employee.Employee{
+						ID:        1,
+						DeletedAt: &deletedDate,
+					}, nil)
 			},
 			result:  "",
-			mockErr: errors.EntityNotFound{},
+			mockErr: errors.EntityNotFound{Entity: "employee"},
 		},
 	}
 

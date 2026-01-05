@@ -19,6 +19,7 @@ func (k K20251231181007) Up(d *datastore.DataStore, logger log.Logger) error {
 			major VARCHAR(100),
 			city VARCHAR(100),
 			department VARCHAR(10) NOT NULL,
+		    deleted_at Date NULL,
 			CONSTRAINT fk_employee_department
 				FOREIGN KEY (department)
 				REFERENCES departments(code)

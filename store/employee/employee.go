@@ -20,7 +20,11 @@ func Init() store.Employee {
 }
 
 func (e *Employee) Create(ctx *gofr.Context, emp *employee.NewEmployee) (*employee.Employee, error) {
-	query := `INSERT INTO employees (name, email, phone_number, dob, major, city, department) VALUES (?, ?, ?, ?, ?, ?, ?)`
+	query := `
+		INSERT INTO employees
+			(name, email, phone_number, dob, major, city, department, deleted_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, NULL)
+	`
 
 	result, err := ctx.DB().ExecContext(
 		ctx,
@@ -58,7 +62,7 @@ func (e *Employee) Get(
 	ctx *gofr.Context,
 	filter employee.Filter,
 ) ([]*employee.Employee, error) {
-	conditions := []string{}
+	conditions := []string{"deleted_at IS NULL"}
 	args := []interface{}{}
 
 	if filter.ID != nil {
@@ -82,10 +86,12 @@ func (e *Employee) Get(
 	}
 
 	query := baseGetEmployeesQuery + where
+
 	rows, err := ctx.DB().QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
+
 	defer rows.Close()
 
 	var employees []*employee.Employee
@@ -102,6 +108,7 @@ func (e *Employee) Get(
 			&emp.Major,
 			&emp.City,
 			&emp.Department,
+			&emp.DeletedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -129,6 +136,7 @@ func (e *Employee) GetById(ctx *gofr.Context, employeeId int) (*employee.Employe
 		&emp.Major,
 		&emp.City,
 		&emp.Department,
+		&emp.DeletedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -188,7 +196,7 @@ func (e *Employee) Update(
 	query := fmt.Sprintf(`
 		UPDATE employees
 		SET %s
-		WHERE id = ?
+		WHERE id = ? AND deleted_at IS NULL
 	`, strings.Join(setClauses, ", "))
 
 	args = append(args, employeeId)
@@ -211,7 +219,7 @@ func (e *Employee) Update(
 }
 
 func (e *Employee) Delete(ctx *gofr.Context, employeeId int) (string, error) {
-	result, err := ctx.DB().ExecContext(ctx, deleteQueryById, employeeId)
+	result, err := ctx.DB().ExecContext(ctx, softDeleteQueryById, employeeId)
 	if err != nil {
 		return "", err
 	}
